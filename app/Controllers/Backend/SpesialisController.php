@@ -6,13 +6,27 @@ use App\Models\Spesialis;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
 
+/**
+ * SpesialisController handles specialization management functionality
+ * 
+ * This controller manages specialization creation, editing, deletion, and display
+ * with proper validation and status management.
+ */
 class SpesialisController extends BaseController
 {
-    protected $spesialis;
+    // Constants for better maintainability
+    private const STATUS_ACTIVE = 'Y';
+    private const STATUS_INACTIVE = 'N';
+    
+    // Model instance
+    private Spesialis $spesialisModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->spesialis = new Spesialis();
+        $this->spesialisModel = new Spesialis();
     }
 
     public function index()
@@ -58,124 +72,111 @@ class SpesialisController extends BaseController
     }
 
 
-    public function save()
+    /**
+     * Get specialization validation rules
+     */
+    private function getSpecializationValidationRules(): array
     {
-        $gelar = $this->request->getVar('gelar');
-        $nama = $this->request->getVar('nama');
-        $status = $this->request->getVar('status');
-
-        $rules = $this->validate([
+        return [
             'gelar' => [
-                'label' => 'Spesialis',
-                'rules' => 'required',
+                'label' => 'Gelar Spesialis',
+                'rules' => 'required|min_length[2]|max_length[50]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong'
+                    'required' => 'Gelar spesialis tidak boleh kosong',
+                    'min_length' => 'Gelar minimal 2 karakter',
+                    'max_length' => 'Gelar maksimal 50 karakter'
                 ]
             ],
-
             'nama' => [
                 'label' => 'Nama Spesialis',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Nama spesialis tidak boleh kosong',
+                    'min_length' => 'Nama minimal 3 karakter',
+                    'max_length' => 'Nama maksimal 100 karakter'
                 ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_gelar' => $validation->getError('gelar'),
-                'error_nama' => $validation->getError('nama'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $this->spesialis->insert([
-                'gelar' => $gelar,
-                'nama' => $nama,
-                // jika statusnya kosong maka akan di set default menjadi Y
-                'status' => $status ? $status : 'Y',
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]);
-
-            session()->setFlashdata('success', 'Data Spesialis Berhasil Di Tambahkan');
-            return redirect()->to('/spesialis');
-        }
+            ]
+        ];
     }
 
+    /**
+     * Save new specialization
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['gelar', 'nama', 'status']);
+
+        $rules = $this->getSpecializationValidationRules();
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['gelar', 'nama']);
+        }
+
+        $this->spesialisModel->insert([
+            'gelar' => $data['gelar'],
+            'nama' => $data['nama'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+
+        return $this->setSuccessMessage('Data Spesialis Berhasil Ditambahkan', '/spesialis');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['spesialis'] = $this->spesialis->find($id);
+        $data = ['spesialis' => $this->spesialisModel->find($id)];
         return view('backend/spesialis/edit', $data);
     }
 
+    /**
+     * Update existing specialization
+     */
     public function update()
     {
+        $data = $this->getFormData(['idspesialis', 'gelar', 'nama', 'status']);
 
-        $idSpesialis = $this->request->getVar('idspesialis');
-        $gelar = $this->request->getVar('gelar');
-        $nama = $this->request->getVar('nama');
-        $status = $this->request->getVar('status');
+        $rules = $this->getSpecializationValidationRules();
 
-        $rules = $this->validate([
-            'gelar' => [
-                'label' => 'Spesialis',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong'
-                ]
-            ],
-
-            'nama' => [
-                'label' => 'Nama Spesialis',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_gelar' => $validation->getError('gelar'),
-                'error_nama' => $validation->getError('nama'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $data = [
-                'gelar' => $gelar,
-                'nama' => $nama,
-                'status' => $status ? $status : 'Y',
-                'updated_at' => date('Y-m-d H:i:s'),
-            ];
-
-            $this->spesialis->update($idSpesialis, $data);
-
-            session()->setFlashdata('success', 'Data Spesialis Berhasil Di Update');
-            return redirect()->to('/spesialis');
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['gelar', 'nama']);
         }
+
+        $updateData = [
+            'gelar' => $data['gelar'],
+            'nama' => $data['nama'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $this->spesialisModel->update($data['idspesialis'], $updateData);
+
+        return $this->setSuccessMessage('Data Spesialis Berhasil Di Update', '/spesialis');
     }
 
 
 
 
+    /**
+     * Delete specialization
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $gelar = $this->spesialis->find($id);
-
-            if ($gelar) {
-                $this->spesialis->delete($id);
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $spesialis = $this->spesialisModel->find($id);
+
+        if (!$spesialis) {
+            return $this->jsonError('Spesialis tidak ditemukan', 404);
+        }
+
+        $this->spesialisModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }
