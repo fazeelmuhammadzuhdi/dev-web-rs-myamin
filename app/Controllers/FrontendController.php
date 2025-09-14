@@ -34,39 +34,26 @@ use App\Models\Penunjang;
 use App\Models\ProfilPPID;
 use App\Models\Sejarah;
 
+/**
+ * FrontendController handles all frontend-related functionality
+ * 
+ * This controller manages the public-facing pages of the application,
+ * including news, galleries, doctor information, and PPID content.
+ */
 class FrontendController extends BaseController
 {
-    protected $tentangkami;
-    protected $sejarah;
-    protected $visimisi;
-    protected $polling;
-    protected $slider;
-    protected $berita;
-    protected $kategori;
-    protected $video;
-    protected $profil;
-    protected $jadwalpoli;
-    protected $banner;
-    protected $albumlist;
-    protected $album;
-    protected $indikatormutulist;
-    protected $indikatormutu;
-    protected $spesialis;
-    protected $dokter;
-    protected $profilmanajemen;
-    protected $referensi;
-    protected $pesan;
-    protected $poli;
-    protected $rawat;
-    protected $penunjang;
-    protected $fasilitas;
-    protected $beritappid;
-    protected $pages;
-    protected $pagevisit;
-    protected $profilPPID;
-    protected $permohononanInformasi;
-    protected $keberatanInformasi;
-    protected $daftarinovasi;
+    // Constants for better maintainability
+    private const STATUS_PUBLISHED = 'PB';
+    private const STATUS_ACTIVE = 'Y';
+    private const STATUS_READ = 'RD';
+    private const DEFAULT_PAGINATION_LIMIT = 8;
+    private const GALLERY_PAGINATION_LIMIT = 9;
+    private const REFERENCE_PAGINATION_LIMIT = 12;
+    private const NEWS_LIMIT = 3;
+    private const SIDEBAR_NEWS_LIMIT = 8;
+    
+    // Model instances
+    private array $models = [];
 
     // protected function loadBeritaKategori($kategori)
     // {
@@ -108,642 +95,1069 @@ class FrontendController extends BaseController
 
 
 
+    /**
+     * Initialize the controller and load required models
+     */
     public function __construct()
     {
-        $this->daftarinovasi = new Inovasi();
-        $this->tentangkami = new Tentang();
-        $this->visimisi = new Profil();
-        $this->polling = new Polling();
-        $this->slider = new Slider();
-        $this->berita = new Berita();
-        $this->kategori = new Kategori();
-        $this->video = new Video();
-        $this->profil = new Profil();
-        $this->jadwalpoli = new JadwalPoli();
-        $this->banner = new Banner();
-        $this->albumlist = new AlbumList();
-        $this->album = new Album();
-        $this->indikatormutulist = new IndikatorMutuList();
-        $this->indikatormutu = new IndikatorMutu();
-        $this->spesialis = new Spesialis();
-        $this->dokter = new Dokter();
-        $this->profilmanajemen = new ManajemenProfil();
-        $this->referensi = new Referensi();
-        $this->pesan = new Pesan();
-        $this->poli = new Poli();
-        $this->rawat = new Rawat();
-        $this->penunjang = new Penunjang();
-        $this->fasilitas = new Fasilitas();
-        $this->pages = new PagesPPID();
-        $this->beritappid = new BeritaPPID();
-        $this->pagevisit = new PageVisit();
-        $this->profilPPID = new ProfilPPID();
-        $this->sejarah = new Sejarah();
-        $this->permohononanInformasi = new FormulirPPID();
-        $this->keberatanInformasi = new KeberatanInformasiPPID();
-
+        $this->initializeModels();
         helper('string');
     }
 
+    /**
+     * Initialize all required models
+     */
+    private function initializeModels(): void
+    {
+        $modelClasses = [
+            'tentangkami' => Tentang::class,
+            'sejarah' => Sejarah::class,
+            'visimisi' => Profil::class,
+            'polling' => Polling::class,
+            'slider' => Slider::class,
+            'berita' => Berita::class,
+            'kategori' => Kategori::class,
+            'video' => Video::class,
+            'profil' => Profil::class,
+            'jadwalpoli' => JadwalPoli::class,
+            'banner' => Banner::class,
+            'albumlist' => AlbumList::class,
+            'album' => Album::class,
+            'indikatormutulist' => IndikatorMutuList::class,
+            'indikatormutu' => IndikatorMutu::class,
+            'spesialis' => Spesialis::class,
+            'dokter' => Dokter::class,
+            'profilmanajemen' => ManajemenProfil::class,
+            'referensi' => Referensi::class,
+            'pesan' => Pesan::class,
+            'poli' => Poli::class,
+            'rawat' => Rawat::class,
+            'penunjang' => Penunjang::class,
+            'fasilitas' => Fasilitas::class,
+            'pages' => PagesPPID::class,
+            'beritappid' => BeritaPPID::class,
+            'pagevisit' => PageVisit::class,
+            'profilPPID' => ProfilPPID::class,
+            'permohononanInformasi' => FormulirPPID::class,
+            'keberatanInformasi' => KeberatanInformasiPPID::class,
+            'daftarinovasi' => Inovasi::class,
+        ];
+
+        foreach ($modelClasses as $property => $class) {
+            $this->models[$property] = new $class();
+        }
+    }
+
+    /**
+     * Get model instance by name
+     */
+    private function getModel(string $name)
+    {
+        return $this->models[$name] ?? null;
+    }
+
+    /**
+     * Display the home page with latest content
+     */
     public function index()
     {
-        // Dapatkan alamat IP dan user agent
+        $this->trackPageVisit();
+        
+        $data = array_merge(
+            $this->getHomePageNewsData(),
+            $this->getHomePageMediaData(),
+            $this->getHomePageProfileData(),
+            $this->getHomePageSidebarData(),
+            ['title' => 'Home']
+        );
+
+        return view('frontend/main/home', $data);
+    }
+
+    /**
+     * Track page visit for analytics
+     */
+    private function trackPageVisit(): void
+    {
         $ipAddress = $this->request->getIPAddress();
         $userAgent = $this->request->getUserAgent();
-
-        // Dapatkan tanggal hari ini
         $date = date('Y-m-d');
+        
+        $this->getModel('pagevisit')->incrementCount($date, $ipAddress, $userAgent);
+    }
 
-        // Tingkatkan jumlah kunjungan
-        $this->pagevisit->incrementCount($date, $ipAddress, $userAgent);
+    /**
+     * Get news data for home page
+     */
+    private function getHomePageNewsData(): array
+    {
+        $beritaModel = $this->getModel('berita');
+        
+        // Get latest news
+        $beritaNew = $beritaModel
+            ->orderBy('tanggal', 'DESC')
+            ->orderBy('idberita', 'DESC')
+            ->where('status', self::STATUS_PUBLISHED)
+            ->first();
 
-
-        // get data berita ambil 3 data saja yang terbaru dan stauts publish
-        // berita new
-        $data['beritaNew'] = $this->berita->orderBy('tanggal', 'DESC')->orderBy('idberita', 'DESC')->where('status', 'PB')->first();
-
-        if ($data['beritaNew']) {
-            $data['beritaOne'] = $this->berita->orderBy('tanggal', 'DESC')
-                ->where('status', 'PB')
-                ->whereNotIn('idberita', [$data['beritaNew']['idberita']])
+        $beritaOne = [];
+        if ($beritaNew) {
+            $beritaOne = $beritaModel
+                ->orderBy('tanggal', 'DESC')
+                ->where('status', self::STATUS_PUBLISHED)
+                ->whereNotIn('idberita', [$beritaNew['idberita']])
                 ->limit(6)
                 ->findAll();
-        } else {
-            $data['beritaOne'] = []; // Jika tidak ada berita, set array kosong.
         }
 
-        // berita 3
-        $data['berita'] = $this->berita->orderBy('tanggal', 'DESC')->orderBy('idberita', 'DESC')->where('status', 'PB')->limit(3)->findAll();
+        return [
+            'beritaNew' => $beritaNew,
+            'beritaOne' => $beritaOne,
+            'berita' => $beritaModel
+                ->orderBy('tanggal', 'DESC')
+                ->orderBy('idberita', 'DESC')
+                ->where('status', self::STATUS_PUBLISHED)
+                ->limit(self::NEWS_LIMIT)
+                ->findAll()
+        ];
+    }
 
-        // dd($data['berita']);
-        // $data['video'] = $this->video->orderBy('tanggal', 'DESC')->where('status', 'PB')->limit(3)->findAll();
-        $data['videoNew'] = $this->video->orderBy('tanggal', 'DESC')->where('status', 'PB')->limit(3)->findAll();
-        $data['slider'] = $this->slider->findAll();
-        $data['profil'] = $this->profil->first();
+    /**
+     * Get media data for home page
+     */
+    private function getHomePageMediaData(): array
+    {
+        return [
+            'videoNew' => $this->getModel('video')
+                ->orderBy('tanggal', 'DESC')
+                ->where('status', self::STATUS_PUBLISHED)
+                ->limit(self::NEWS_LIMIT)
+                ->findAll(),
+            'slider' => $this->getModel('slider')->findAll(),
+            'banner' => $this->getModel('banner')
+                ->orderBy('idbanner', 'ASC')
+                ->where('status', self::STATUS_PUBLISHED)
+                ->findAll(),
+            'galeri' => $this->getModel('album')->getGaleri()
+        ];
+    }
+
+    /**
+     * Get profile data for home page
+     */
+    private function getHomePageProfileData(): array
+    {
+        $profil = $this->getModel('profil')->first();
+        
+        return [
+            'profil' => $profil,
+            'parsedMisi' => $this->parseMisiContent($profil['misi'] ?? ''),
+            'tentangKami' => $this->getModel('tentangkami')->first()
+        ];
+    }
+
+    /**
+     * Get sidebar data for home page
+     */
+    private function getHomePageSidebarData(): array
+    {
+        return [
+            'polling' => $this->getModel('polling')->getFormattedPollingData(),
+            'vote' => $this->getModel('polling')->getPollingData(),
+            'jadwalpoli' => $this->getModel('jadwalpoli')->getFormattedJadwalPoliWithDokter(),
+            'pesanNew' => $this->getModel('pesan')
+                ->where('status', self::STATUS_PUBLISHED)
+                ->where('status_baca', self::STATUS_READ)
+                ->orderBy('tanggal', 'DESC')
+                ->findAll()
+        ];
+    }
+
+    /**
+     * Parse mission content from HTML
+     */
+    private function parseMisiContent(string $misiHtml): array
+    {
+        if (empty($misiHtml)) {
+            return [];
+        }
 
         $parsedMisi = [];
         $dom = new \DOMDocument();
-        @$dom->loadHTML($data['profil']['misi']);
+        @$dom->loadHTML($misiHtml);
         $divs = $dom->getElementsByTagName('p');
 
         foreach ($divs as $div) {
             $textContent = trim($div->textContent);
             $cleanedText = preg_replace('/^\d+\.\s*/', '', $textContent);
-            // Pisahkan berdasarkan titik atau tanda yang sesuai
             $items = preg_split('/\d+\.\s+/', $cleanedText, -1, PREG_SPLIT_NO_EMPTY);
+            
             foreach ($items as $item) {
                 $parsedMisi[] = trim($item);
             }
         }
 
-        $data['parsedMisi'] = $parsedMisi;
-        $data['tentangKami'] = $this->tentangkami->first();
-        $data['polling'] = $this->polling->getFormattedPollingData();
-        $data['vote'] = $this->polling->getPollingData();
-        $data['jadwalpoli'] = $this->jadwalpoli->getFormattedJadwalPoliWithDokter();
-        $data['banner'] = $this->banner->orderBy('idbanner', 'ASC')->where('status', 'PB')->findAll();
-        $data['galeri'] = $this->album->getGaleri();
-        $data['pesanNew'] = $this->pesan->where('status', 'PB')->where('status_baca', 'RD')->orderBy('tanggal', 'DESC')->findAll();
-        $data['title'] = 'Home';
-
-        return view('frontend/main/home', $data);
+        return $parsedMisi;
     }
 
-    // tentang kami
+    /**
+     * Display about us page
+     */
     public function tentangKami()
     {
-        $data['tentangKami'] = $this->tentangkami->first();
-        $data['profil'] = $this->profil->first();
-        $data['vote'] = $this->polling->getPollingData();
-        $data['slider'] = $this->slider->orderBy('idslider', 'ASC')->limit(5)->findAll();
-        $data['polling'] = $this->polling->getFormattedPollingData();
-        $data['title'] = 'Tentang Kami';
+        $data = array_merge(
+            $this->getCommonPageData(),
+            [
+                'tentangKami' => $this->getModel('tentangkami')->first(),
+                'profil' => $this->getModel('profil')->first(),
+                'slider' => $this->getModel('slider')
+                    ->orderBy('idslider', 'ASC')
+                    ->limit(5)
+                    ->findAll(),
+                'title' => 'Tentang Kami'
+            ]
+        );
 
         return view('frontend/tentang-kami', $data);
     }
 
+    /**
+     * Display organization structure page
+     */
     public function strukturOrganisasi()
     {
-        $data['title'] = 'Struktur Organisasi';
-        $data['tentangKami'] = $this->tentangkami->first();
+        $data = [
+            'title' => 'Struktur Organisasi',
+            'tentangKami' => $this->getModel('tentangkami')->first()
+        ];
+        
         return view('frontend/struktur-organisasi', $data);
     }
 
+    /**
+     * Display history page
+     */
     public function sejarah()
     {
-        $data['tentangKami'] = $this->tentangkami->first();
-        $data['sejarah'] = $this->sejarah->orderBy('tahun', 'ASC')->findAll();
-        $data['title'] = 'Sejarah & Perkembangan';
+        $data = [
+            'tentangKami' => $this->getModel('tentangkami')->first(),
+            'sejarah' => $this->getModel('sejarah')
+                ->orderBy('tahun', 'ASC')
+                ->findAll(),
+            'title' => 'Sejarah & Perkembangan'
+        ];
+        
         return view('frontend/sejarah', $data);
     }
 
+    /**
+     * Display vision and mission page
+     */
     public function visiMisi()
     {
-        $data['visiMisi'] = $this->visimisi->first();
-        $data['title'] = 'Visi & Misi';
+        $data = [
+            'visiMisi' => $this->getModel('visimisi')->first(),
+            'title' => 'Visi & Misi'
+        ];
 
         return view('frontend/visi-misi', $data);
     }
 
+    /**
+     * Display quality indicators page
+     */
     public function indikatorMutu()
     {
-        $data['indikatorMutu'] = $this->indikatormutu->getIndikatorMutu();
-        $data['title'] = 'Indikator Mutu';
+        $data = [
+            'indikatorMutu' => $this->getModel('indikatormutu')->getIndikatorMutu(),
+            'title' => 'Indikator Mutu'
+        ];
+        
         return view('frontend/indikator-mutu', $data);
     }
 
+    /**
+     * Display management profile page
+     */
     public function profilManajemen()
     {
-        $data['profilManajemen'] = $this->profilmanajemen->getProfilManajemen();
-        $data['title'] = 'Profil Manajemen';
+        $data = [
+            'profilManajemen' => $this->getModel('profilmanajemen')->getProfilManajemen(),
+            'title' => 'Profil Manajemen'
+        ];
 
         return view('frontend/profil-manajemen', $data);
     }
 
+    /**
+     * Get common data used across multiple pages
+     */
+    private function getCommonPageData(): array
+    {
+        return [
+            'vote' => $this->getModel('polling')->getPollingData(),
+            'polling' => $this->getModel('polling')->getFormattedPollingData()
+        ];
+    }
 
 
+
+    /**
+     * Display doctors page with search functionality
+     */
     public function dokterKami()
     {
-        // Ambil parameter pencarian dari query string
-        $namaSpesialis = $this->request->getGet('nama_spesialis');
-        $namaDokter = $this->request->getGet('nama_dokter');
+        $searchParams = $this->getDoctorSearchParams();
+        $spesialisList = $this->getActiveSpesialis();
+        
+        if ($this->hasSearchCriteria($searchParams)) {
+            return $this->displayDoctorSearchResults($searchParams, $spesialisList);
+        }
+        
+        return $this->displayAllDoctorsBySpesialis($searchParams, $spesialisList);
+    }
 
-        // Buat query dasar untuk dokter
-        $dokterQuery = $this->dokter->getDokterWithSpesialis();
+    /**
+     * Get search parameters from request
+     */
+    private function getDoctorSearchParams(): array
+    {
+        return [
+            'nama_spesialis' => $this->request->getGet('nama_spesialis'),
+            'nama_dokter' => $this->request->getGet('nama_dokter')
+        ];
+    }
 
-        // Tambahkan kondisi berdasarkan spesialis jika ada
-        if (!empty($namaSpesialis)) {
-            $dokterQuery->where('spesialis_id', $namaSpesialis);
+    /**
+     * Get all active spesialis
+     */
+    private function getActiveSpesialis(): array
+    {
+        return $this->getModel('spesialis')
+            ->where('status', self::STATUS_ACTIVE)
+            ->orderBy('nama', 'asc')
+            ->findAll();
+    }
+
+    /**
+     * Check if search criteria exists
+     */
+    private function hasSearchCriteria(array $searchParams): bool
+    {
+        return !empty($searchParams['nama_spesialis']) || !empty($searchParams['nama_dokter']);
+    }
+
+    /**
+     * Display search results for doctors
+     */
+    private function displayDoctorSearchResults(array $searchParams, array $spesialisList): string
+    {
+        $dokterResults = $this->searchDoctors($searchParams);
+        
+        return view('frontend/dokter', [
+            'spesialisList' => $spesialisList,
+            'dokterResults' => $dokterResults,
+            'selectedSpesialis' => $searchParams['nama_spesialis'],
+            'searchedNamaDokter' => $searchParams['nama_dokter'],
+        ]);
+    }
+
+    /**
+     * Search doctors based on criteria
+     */
+    private function searchDoctors(array $searchParams): array
+    {
+        $dokterQuery = $this->getModel('dokter')->getDokterWithSpesialis();
+
+        if (!empty($searchParams['nama_spesialis'])) {
+            $dokterQuery->where('spesialis_id', $searchParams['nama_spesialis']);
         }
 
-        // Tambahkan kondisi berdasarkan nama dokter jika ada
-        if (!empty($namaDokter)) {
-            $dokterQuery->like('dokter.nama', $namaDokter);
+        if (!empty($searchParams['nama_dokter'])) {
+            $dokterQuery->like('dokter.nama', $searchParams['nama_dokter']);
         }
 
-        // Dapatkan hasil pencarian dokter
-        $dokterResults = $dokterQuery->orderBy('nama', 'asc')->get()->getResultArray();
+        return $dokterQuery->orderBy('nama', 'asc')->get()->getResultArray();
+    }
 
-        // Ambil semua spesialis yang aktif
-        $spesialisList = $this->spesialis->where('status', 'Y')->orderBy('nama', 'asc')->findAll();
+    /**
+     * Display all doctors grouped by spesialis
+     */
+    private function displayAllDoctorsBySpesialis(array $searchParams, array $spesialisList): string
+    {
+        $data = [
+            'spesialis' => $this->getDoctorsBySpesialis($spesialisList),
+            'spesialisList' => $spesialisList,
+            'selectedSpesialis' => $searchParams['nama_spesialis'],
+            'searchedNamaDokter' => $searchParams['nama_dokter'],
+            'dokterResults' => []
+        ];
 
-        // Jika ada pencarian, tampilkan hasil pencarian saja
-        if (!empty($namaSpesialis) || !empty($namaDokter)) {
-            return view('frontend/dokter', [
-                'spesialisList' => $spesialisList,
-                'dokterResults' => $dokterResults,
-                'selectedSpesialis' => $namaSpesialis,
-                'searchedNamaDokter' => $namaDokter,
-            ]);
-        }
+        return view('frontend/dokter', $data);
+    }
 
-        // Looping spesialis untuk mengambil dokter masing-masing spesialis
-        $data = [];
+    /**
+     * Get doctors grouped by spesialis
+     */
+    private function getDoctorsBySpesialis(array $spesialisList): array
+    {
+        $spesialisData = [];
+        
         foreach ($spesialisList as $spesialis) {
-            $dokter = $this->dokter->where('status', 'Y')
+            $dokter = $this->getModel('dokter')
+                ->where('status', self::STATUS_ACTIVE)
                 ->where('spesialis_id', $spesialis['idspesialis'])
                 ->orderBy('nama', 'asc')
                 ->findAll();
 
-
-            $data['spesialis'][$spesialis['idspesialis']] = [
+            $spesialisData[$spesialis['idspesialis']] = [
                 'nama' => $spesialis['nama'],
                 'dokter' => $dokter,
             ];
         }
 
-
-
-        // Kirim data ke view
-        $data['spesialisList'] = $spesialisList;
-        $data['selectedSpesialis'] = $namaSpesialis;
-        $data['searchedNamaDokter'] = $namaDokter;
-        $data['dokterResults'] = [];
-
-        return view('frontend/dokter', $data);
+        return $spesialisData;
     }
 
 
+    /**
+     * Display photo gallery page
+     */
     public function galeriFoto()
     {
-        $data['galeriFoto'] = $this->album->getGaleriFoto();
-        $data['pager'] = $this->album->pager;
-        $data['title'] = 'Galeri Foto';
+        $albumModel = $this->getModel('album');
+        
+        $data = [
+            'galeriFoto' => $albumModel->getGaleriFoto(),
+            'pager' => $albumModel->pager,
+            'title' => 'Galeri Foto'
+        ];
 
         return view('frontend/galeri-foto', $data);
     }
 
+    /**
+     * Display photo gallery detail page
+     */
     public function galeriFotoDetail($slug)
     {
-        $data['galeriFotoDetail'] = $this->album->getGaleriFotoDetail($slug);
-        $data['title'] = 'Galeri Foto Detail';
+        $data = [
+            'galeriFotoDetail' => $this->getModel('album')->getGaleriFotoDetail($slug),
+            'title' => 'Galeri Foto Detail'
+        ];
 
         return view('frontend/galeri-foto-detail', $data);
     }
 
+    /**
+     * Display video gallery page
+     */
     public function galeriVideo()
     {
-        $data['galeriVideo'] = $this->video->where('status', 'PB')->orderBy('tanggal', 'DESC')->paginate(9);
-        $data['pager'] = $this->video->pager;
-        $data['title'] = 'Galeri Video';
+        $videoModel = $this->getModel('video');
+        
+        $data = [
+            'galeriVideo' => $videoModel
+                ->where('status', self::STATUS_PUBLISHED)
+                ->orderBy('tanggal', 'DESC')
+                ->paginate(self::GALLERY_PAGINATION_LIMIT),
+            'pager' => $videoModel->pager,
+            'title' => 'Galeri Video'
+        ];
 
         return view('frontend/galeri-video', $data);
     }
 
+    /**
+     * Display news page with search functionality
+     */
     public function berita()
     {
         $searchQuery = $this->request->getGet('q');
+        $beritaModel = $this->getModel('berita');
+        
+        $data = array_merge(
+            $this->getNewsSidebarData($beritaModel),
+            [
+                'kategori' => $beritaModel->countBeritaByKategori(),
+                'berita' => $this->getNewsData($beritaModel, $searchQuery),
+                'searchQuery' => $searchQuery,
+                'pager' => $beritaModel->pager,
+                'title' => 'Berita'
+            ]
+        );
 
-
-        // count berita berdasarkan kategori_id
-        $data['kategori'] = $this->berita->countBeritaByKategori();
-        // dd($data['kategori']);
-
-        if ($searchQuery) {
-            // If a search query is present, filter the news by title
-            $data['berita'] = $this->berita
-                ->like('judul', $searchQuery)
-                ->where('status', 'PB')
-                ->orderBy('tanggal', 'desc')
-                ->orderBy('idberita', 'desc')
-                ->paginate(8);
-        } else {
-            // If no search query, show all news
-            $data['berita'] = $this->berita
-                ->where('status', 'PB')
-                ->orderBy('tanggal', 'desc')
-                ->orderBy('idberita', 'desc')
-
-                ->paginate(8);
-        }
-
-
-        $data['searchQuery'] = $searchQuery;
-        $data['pager'] = $this->berita->pager;
-
-
-        $data['beritaMostView'] = $this->berita->orderBy('viewberita', 'desc')->where('status', 'PB')->limit(8)->findAll();
-        $data['beritaTerbaru'] = $this->berita->orderBy('tanggal', 'desc')->orderBy('idberita', 'desc')->where('status', 'PB')->limit(8)->findAll();
-        $data['title'] = 'Berita';
         return view('frontend/berita', $data);
     }
 
-    public function beritaDetail($slug)
+    /**
+     * Get news data based on search query
+     */
+    private function getNewsData($beritaModel, ?string $searchQuery): array
     {
-        // $data['kategori'] = $this->kategori->where('status', 'Y')->findAll();
+        $query = $beritaModel
+            ->where('status', self::STATUS_PUBLISHED)
+            ->orderBy('tanggal', 'desc')
+            ->orderBy('idberita', 'desc');
 
-        $data['kategori'] = $this->berita->countBeritaByKategori();
-        $data['title'] = 'Detail Berita';
-
-        $data['beritaDetail'] = $this->berita->where('slug', $slug)->first();
-
-        if (!$data['beritaDetail']) {
-            throw new \CodeIgniter\Exceptions\PageNotFoundException('Berita TIdak Ditemukan');
+        if ($searchQuery) {
+            $query->like('judul', $searchQuery);
         }
 
-        $this->berita->incrementViewCount($data['beritaDetail']['idberita']);
-        $data['beritaDetail'] = $this->berita->where('slug', $slug)->first();
+        return $query->paginate(self::DEFAULT_PAGINATION_LIMIT);
+    }
 
+    /**
+     * Get sidebar data for news page
+     */
+    private function getNewsSidebarData($beritaModel): array
+    {
+        return [
+            'beritaMostView' => $beritaModel
+                ->orderBy('viewberita', 'desc')
+                ->where('status', self::STATUS_PUBLISHED)
+                ->limit(self::SIDEBAR_NEWS_LIMIT)
+                ->findAll(),
+            'beritaTerbaru' => $beritaModel
+                ->orderBy('tanggal', 'desc')
+                ->orderBy('idberita', 'desc')
+                ->where('status', self::STATUS_PUBLISHED)
+                ->limit(self::SIDEBAR_NEWS_LIMIT)
+                ->findAll()
+        ];
+    }
 
-        // Ambil kategori_id dari berita yang sedang ditampilkan
-        $kategoriId = $data['beritaDetail']['kategori_id'];
+    /**
+     * Display news detail page
+     */
+    public function beritaDetail($slug)
+    {
+        $beritaModel = $this->getModel('berita');
+        $beritaDetail = $beritaModel->where('slug', $slug)->first();
 
-        // Query untuk mendapatkan berita lainnya
-        $data['beritaLainnya'] = $this->berita
-            ->where('kategori_id', $kategoriId) // Filter berdasarkan kategori
-            ->where('slug !=', $slug) // Pastikan tidak termasuk berita yang sedang ditampilkan
-            ->orderBy('tanggal', 'desc')
-            ->limit(4)
-            ->findAll();
+        if (!$beritaDetail) {
+            throw new \CodeIgniter\Exceptions\PageNotFoundException('Berita Tidak Ditemukan');
+        }
 
-        // dd($data['beritaLainnya']);
-        $data['beritaMostView'] = $this->berita->orderBy('viewberita', 'desc')->where('status', 'PB')->limit(8)->findAll();
-        $data['beritaTerbaru'] = $this->berita->orderBy('tanggal', 'desc')->orderBy('idberita', 'desc')->where('status', 'PB')->limit(8)->findAll();
+        // Increment view count
+        $beritaModel->incrementViewCount($beritaDetail['idberita']);
+        
+        // Refresh data after view count increment
+        $beritaDetail = $beritaModel->where('slug', $slug)->first();
+
+        $data = array_merge(
+            $this->getNewsSidebarData($beritaModel),
+            [
+                'kategori' => $beritaModel->countBeritaByKategori(),
+                'beritaDetail' => $beritaDetail,
+                'beritaLainnya' => $this->getRelatedNews($beritaModel, $beritaDetail['kategori_id'], $slug),
+                'title' => 'Detail Berita'
+            ]
+        );
 
         return view('frontend/berita-detail', $data);
     }
 
+    /**
+     * Get related news from the same category
+     */
+    private function getRelatedNews($beritaModel, int $kategoriId, string $currentSlug): array
+    {
+        return $beritaModel
+            ->where('kategori_id', $kategoriId)
+            ->where('slug !=', $currentSlug)
+            ->orderBy('tanggal', 'desc')
+            ->limit(4)
+            ->findAll();
+    }
+
+    /**
+     * Display news by category
+     */
     public function beritaKategori($idkategori)
     {
-        $kategori = $this->kategori->where('status', 'Y')->where('idkategori', $idkategori)->first();
-        $data['berita'] = $this->berita->where('kategori_id', $kategori['idkategori'])->where('status', 'PB')->orderBy('tanggal', 'desc')->paginate(10);
+        $kategori = $this->getModel('kategori')
+            ->where('status', self::STATUS_ACTIVE)
+            ->where('idkategori', $idkategori)
+            ->first();
 
-        $data['pager'] = $this->berita->pager;
-        $data['selectedKategori'] = $idkategori;
+        if (!$kategori) {
+            throw new \CodeIgniter\Exceptions\PageNotFoundException('Kategori Tidak Ditemukan');
+        }
 
-        $data['kategori'] = $this->berita->countBeritaByKategori();
-        $data['title'] = "Berita Kategori";
-
-
-        $data['beritaMostView'] = $this->berita->orderBy('viewberita', 'desc')->where('status', 'PB')->limit(8)->findAll();
-        $data['beritaTerbaru'] = $this->berita->orderBy('tanggal', 'desc')->orderBy('idberita', 'desc')->where('status', 'PB')->limit(8)->findAll();
-
+        $beritaModel = $this->getModel('berita');
+        
+        $data = array_merge(
+            $this->getNewsSidebarData($beritaModel),
+            [
+                'berita' => $beritaModel
+                    ->where('kategori_id', $kategori['idkategori'])
+                    ->where('status', self::STATUS_PUBLISHED)
+                    ->orderBy('tanggal', 'desc')
+                    ->paginate(10),
+                'pager' => $beritaModel->pager,
+                'selectedKategori' => $idkategori,
+                'kategori' => $beritaModel->countBeritaByKategori(),
+                'title' => 'Berita Kategori'
+            ]
+        );
 
         return view('frontend/berita-kategori', $data);
     }
 
-    // pojok referensi
+    /**
+     * Display reference corner page with search functionality
+     */
     public function pojokReferensi()
     {
-        $namaKategori = $this->request->getGet('nama_kategori');
-        $namaJudul = $this->request->getGet('nama_judul');
-
-        $referensiQuery = $this->referensi->orderBy('judul', 'asc');
-
-        if (!empty($namaKategori)) {
-            $referensiQuery->where('kategori', $namaKategori);
-        }
-
-        if (!empty($namaJudul)) {
-            $referensiQuery->groupStart()
-                ->like('judul', $namaJudul)
-                ->orLike('pengarang', $namaJudul)
-                ->orLike('penerbit', $namaJudul)
-                ->groupEnd();
-        }
-
-        $data['referensi'] = $referensiQuery->paginate(12);
-        $data['namaKategori'] = $namaKategori;
-        $data['namaJudul'] = $namaJudul;
-        $data['pager'] = $this->referensi->pager;
-        $data['title'] = 'Pojok Referensi';
+        $searchParams = $this->getReferenceSearchParams();
+        $referensiModel = $this->getModel('referensi');
+        
+        $data = [
+            'referensi' => $this->getReferenceData($referensiModel, $searchParams),
+            'namaKategori' => $searchParams['nama_kategori'],
+            'namaJudul' => $searchParams['nama_judul'],
+            'pager' => $referensiModel->pager,
+            'title' => 'Pojok Referensi'
+        ];
 
         return view('frontend/pojok-referensi', $data);
     }
 
+    /**
+     * Get reference search parameters
+     */
+    private function getReferenceSearchParams(): array
+    {
+        return [
+            'nama_kategori' => $this->request->getGet('nama_kategori'),
+            'nama_judul' => $this->request->getGet('nama_judul')
+        ];
+    }
 
+    /**
+     * Get reference data based on search criteria
+     */
+    private function getReferenceData($referensiModel, array $searchParams): array
+    {
+        $query = $referensiModel->orderBy('judul', 'asc');
+
+        if (!empty($searchParams['nama_kategori'])) {
+            $query->where('kategori', $searchParams['nama_kategori']);
+        }
+
+        if (!empty($searchParams['nama_judul'])) {
+            $query->groupStart()
+                ->like('judul', $searchParams['nama_judul'])
+                ->orLike('pengarang', $searchParams['nama_judul'])
+                ->orLike('penerbit', $searchParams['nama_judul'])
+                ->groupEnd();
+        }
+
+        return $query->paginate(self::REFERENCE_PAGINATION_LIMIT);
+    }
+
+
+    /**
+     * Display contact page
+     */
     public function kontak()
     {
-        $data['profil'] = $this->profil->first();
-        $data['vote'] = $this->polling->getPollingData();
-        $data['polling'] = $this->polling->getFormattedPollingData();
-        $data['title'] = 'Kontak';
+        $data = array_merge(
+            $this->getCommonPageData(),
+            [
+                'profil' => $this->getModel('profil')->first(),
+                'title' => 'Kontak'
+            ]
+        );
 
         return view('frontend/kontak', $data);
     }
 
+    /**
+     * Display IGD (Emergency Room) page
+     */
     public function igd()
     {
-        $data['igd'] = $this->rawat->where('slug', 'igd')->where('status', 'Y')->first();
-        $data['title'] = 'IGD';
+        $data = [
+            'igd' => $this->getModel('rawat')
+                ->where('slug', 'igd')
+                ->where('status', self::STATUS_ACTIVE)
+                ->first(),
+            'title' => 'IGD'
+        ];
+        
         return view('frontend/igd', $data);
     }
 
+    /**
+     * Display polyclinic page
+     */
     public function poliklinik()
     {
-        $data['poli'] = $this->poli->where('status', 'Y')->findAll();
-        $data['title'] = 'Poliklinik';
+        $data = [
+            'poli' => $this->getModel('poli')
+                ->where('status', self::STATUS_ACTIVE)
+                ->findAll(),
+            'title' => 'Poliklinik'
+        ];
+        
         return view('frontend/poliklinik', $data);
     }
 
+    /**
+     * Display polyclinic detail page
+     */
     public function detailPoliklinik($namaPoli)
     {
-
-        $data['jadwalpoli'] = $this->jadwalpoli->getJadwalPoliWithDokter($namaPoli);
-        $data['title'] = "Poliklinik $namaPoli";
+        $data = [
+            'jadwalpoli' => $this->getModel('jadwalpoli')->getJadwalPoliWithDokter($namaPoli),
+            'title' => "Poliklinik $namaPoli"
+        ];
 
         return view('frontend/detail-poliklinik', $data);
     }
 
+    /**
+     * Display inpatient care page
+     */
     public function rawatInap($nama)
     {
-        $data['rawatInap'] = $this->rawat->where('slug', $nama)->first();
-        $data['namaRawat'] = $nama;
-        $data['title'] = "Rawat Inap $nama";
+        $data = [
+            'rawatInap' => $this->getModel('rawat')->where('slug', $nama)->first(),
+            'namaRawat' => $nama,
+            'title' => "Rawat Inap $nama"
+        ];
+        
         return view('frontend/rawat-inap', $data);
     }
 
+    /**
+     * Display supporting services page
+     */
     public function penunjang($nama)
     {
-        $data['penunjang'] = $this->penunjang->where('nama', $nama)->first();
-        $data['namaPenunjang'] = $nama;
-        $data['title'] = $nama;
+        $data = [
+            'penunjang' => $this->getModel('penunjang')->where('nama', $nama)->first(),
+            'namaPenunjang' => $nama,
+            'title' => $nama
+        ];
 
         return view('frontend/penunjang', $data);
     }
 
+    /**
+     * Display facilities page
+     */
     public function fasilitas($nama)
     {
-        $data['fasilitas'] = $this->fasilitas->where('slug', $nama)->first();
-        $data['namaFasilitas'] = $nama;
-        $data['title'] = $nama;
+        $data = [
+            'fasilitas' => $this->getModel('fasilitas')->where('slug', $nama)->first(),
+            'namaFasilitas' => $nama,
+            'title' => $nama
+        ];
 
         return view('frontend/fasilitas', $data);
     }
 
+    /**
+     * Display PPID vision and mission page
+     */
     public function visiMisiPPID()
     {
-        $data['profilPpid'] = $this->profilPPID->first();
-        $data['title'] = 'Visi Misi PPID';
+        $data = [
+            'profilPpid' => $this->getModel('profilPPID')->first(),
+            'title' => 'Visi Misi PPID'
+        ];
 
         return view('frontend/visi-misi-ppid', $data);
     }
+
+    /**
+     * Display PPID duties and functions page
+     */
     public function tugasFungsiPPID()
     {
-        $data['profilPpid'] = $this->profilPPID->first();
-        $data['title'] = 'Tugas Fungsi PPID';
+        $data = [
+            'profilPpid' => $this->getModel('profilPPID')->first(),
+            'title' => 'Tugas Fungsi PPID'
+        ];
 
         return view('frontend/tugas-fungsi-ppid', $data);
     }
 
+    /**
+     * Display PPID brief profile page
+     */
     public function profilSingkat()
     {
-        $data['title'] = 'Profil Singkat PPID';
-        $data['profilPpid'] = $this->profilPPID->first();
+        $data = [
+            'title' => 'Profil Singkat PPID',
+            'profilPpid' => $this->getModel('profilPPID')->first()
+        ];
+        
         return view('frontend/profil-singkat-ppid', $data);
     }
 
+    /**
+     * Display KIP regulations page
+     */
     public function peraturanKIP()
     {
-        $data = $this->sidebarData('ppid');
-        $data['profilPpid'] = $this->profilPPID->first();
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            ['profilPpid' => $this->getModel('profilPPID')->first()]
+        );
 
         return view('frontend/peraturan-kip', $data);
     }
 
+    /**
+     * Display bed information page
+     */
     public function tempatTidur()
     {
-
-        $data['informasiTempatTidur'] = $this->tentangkami->first();
+        $data = [
+            'informasiTempatTidur' => $this->getModel('tentangkami')->first()
+        ];
+        
         return view('frontend/tempat-tidur', $data);
     }
 
+    /**
+     * Display PPID announcement page
+     */
     public function maklumat()
     {
-        $data['profilPpid'] = $this->profilPPID->first();
+        $data = [
+            'profilPpid' => $this->getModel('profilPPID')->first()
+        ];
+        
         return view('frontend/maklumat-ppid', $data);
     }
 
+    /**
+     * Display information request flow page
+     */
     public function alurPermohonanInformasi()
     {
         return view('frontend/alur-permohonan-informasi');
     }
 
+    /**
+     * Display objection submission flow page
+     */
     public function alurPengajuanKeberatan()
     {
-
         return view('frontend/alur-pengajuan-keberatan');
     }
+
+    /**
+     * Display dispute resolution flow page
+     */
     public function alurPenyelesaianSengketa()
     {
-
         return view('frontend/alur-penyelesaian-sengketa');
     }
 
+    /**
+     * Display PPID structure page
+     */
     public function strukturPPID()
     {
         return view('frontend/struktur-ppid');
     }
 
+    /**
+     * Display financial report page with pagination
+     */
     public function laporan($slug)
     {
-        // Ambil parameter halaman dari query string, jika tidak ada, set halaman pertama
-        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $page = $this->getPageParameter();
+        $perPage = self::REFERENCE_PAGINATION_LIMIT;
+        
+        $laporanData = $this->getLaporanData($slug);
+        $parsedContent = $this->parseLaporanContent($laporanData['konten']);
+        
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            [
+                'laporan' => $this->prepareLaporanData($laporanData, $parsedContent, $page, $perPage),
+                'pagination' => $this->createPagination($page, $perPage, count($parsedContent))
+            ]
+        );
 
-        // Jumlah data per halaman
-        $perPage = 12;
+        return view('frontend/laporan-keuangan', $data);
+    }
 
-        // Parsing data dari field 'konten'
-        $data['laporan'] = $this->pages->where('slug', $slug)->first();
+    /**
+     * Get page parameter from request
+     */
+    private function getPageParameter(): int
+    {
+        return isset($_GET['page']) ? (int)$_GET['page'] : 1;
+    }
 
-        // Parsing data dari field 'konten'
-        $parsedKonten = [];
+    /**
+     * Get laporan data by slug
+     */
+    private function getLaporanData(string $slug): array
+    {
+        $laporan = $this->getModel('pages')->where('slug', $slug)->first();
+        
+        if (!$laporan) {
+            throw new \CodeIgniter\Exceptions\PageNotFoundException('Laporan Tidak Ditemukan');
+        }
+        
+        return $laporan;
+    }
+
+    /**
+     * Parse HTML content from laporan
+     */
+    private function parseLaporanContent(string $konten): array
+    {
+        if (empty($konten)) {
+            return [];
+        }
+
+        $parsedContent = [];
         $dom = new \DOMDocument();
-        @$dom->loadHTML($data['laporan']['konten']);
+        @$dom->loadHTML($konten);
 
-        // Mengambil elemen <li>
+        // Parse <li> elements
         $lis = $dom->getElementsByTagName('li');
         foreach ($lis as $li) {
             $a = $li->getElementsByTagName('a')->item(0);
             if ($a) {
-                $href = $a->getAttribute('href');
-                $text = $a->textContent;
-                $parsedKonten[] = ['href' => $href, 'text' => $text];
+                $parsedContent[] = [
+                    'href' => $a->getAttribute('href'),
+                    'text' => $a->textContent
+                ];
             } else {
-                $textContent = trim($li->textContent);
-                $parsedKonten[] = ['text' => $textContent];
+                $parsedContent[] = ['text' => trim($li->textContent)];
             }
         }
 
-        // Mengambil elemen <p>
+        // Parse <p> elements
         $ps = $dom->getElementsByTagName('p');
         foreach ($ps as $p) {
             $textContent = trim($p->textContent);
-            $parsedKonten[] = ['text' => $textContent];
+            if (!empty($textContent)) {
+                $parsedContent[] = ['text' => $textContent];
+            }
         }
 
-        // Jumlah total data setelah parsing
-        $totalItems = count($parsedKonten);
+        return $parsedContent;
+    }
 
-        // Hitung offset untuk data pada halaman ini
+    /**
+     * Prepare laporan data for view
+     */
+    private function prepareLaporanData(array $laporanData, array $parsedContent, int $page, int $perPage): array
+    {
         $offset = ($page - 1) * $perPage;
+        $currentPageData = array_slice($parsedContent, $offset, $perPage);
 
-        // Ambil data untuk halaman saat ini menggunakan array_slice dengan panjang $perPage
-        $currentPageData = array_slice($parsedKonten, $offset, $perPage);
-
-        // Menyiapkan data untuk view
-        $data['laporan'] = [
-            'title' => $data['laporan']['title'],
-            'items' => $currentPageData, // Hanya data untuk halaman saat ini
-            'gambar' => $data['laporan']['gambar']
+        return [
+            'title' => $laporanData['title'],
+            'items' => $currentPageData,
+            'gambar' => $laporanData['gambar']
         ];
+    }
 
-        // Buat link pagination
+    /**
+     * Create pagination links
+     */
+    private function createPagination(int $page, int $perPage, int $totalItems): string
+    {
         $pager = \Config\Services::pager();
-        $data['pagination'] = $pager->makeLinks($page, $perPage, $totalItems);
-
-
-        $data += $this->sidebarData('ppid');
-
-        // $data['url'] = 'dip';
-        // $data['title'] = 'Daftar Informasi Publik';
-        // $data += $this->loadBeritaKategori(BeritaPPID::KATEGORI_PPID);
-
-
-        // Load view dengan data yang sudah disiapkan
-        return view('frontend/laporan-keuangan', $data);
+        return $pager->makeLinks($page, $perPage, $totalItems);
     }
 
 
+    /**
+     * Increment download count for PPID news
+     */
     public function incrementDownloadCount()
     {
         $id = $this->request->getPost('id');
 
-        if ($id) {
-            $berita = $this->beritappid->find($id);
-
-            if ($berita) {
-                $berita['download'] += 1;
-                $this->beritappid->update($id, $berita);
-
-                return $this->response->setJSON(['status' => 'success']);
-            }
+        if (!$id) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'ID tidak valid']);
         }
 
-        return $this->response->setJSON(['status' => 'error']);
+        $beritaModel = $this->getModel('beritappid');
+        $berita = $beritaModel->find($id);
+
+        if (!$berita) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Berita tidak ditemukan']);
+        }
+
+        $berita['download'] = ($berita['download'] ?? 0) + 1;
+        $beritaModel->update($id, $berita);
+
+        return $this->response->setJSON(['status' => 'success']);
     }
 
+    /**
+     * Display public information list (DIP)
+     */
     public function daftarInformasiPublik()
     {
-        // $data['dip'] = $this->beritappid->getAllDataPPID(BeritaPPID::KATEGORI_PPID)->get()->getResultArray();
-        // $data['title'] = 'Daftar Informasi Publik';
-        // $data['countBeritaPPID'] = $this->beritappid->countBeritaByKategori(BeritaPPID::KATEGORI_PPID);
-        // $data['popularBeritaPPID'] = $this->beritappid->getPopularBerita(BeritaPPID::KATEGORI_PPID);
-        // $data['beritaTerbaruPPID'] = $this->beritappid->getLatestBerita(BeritaPPID::KATEGORI_PPID);
-        // $data['total'] = $this->beritappid->where('nm_status', 'Publish')->whereIn('kategori_id', BeritaPPID::KATEGORI_PPID)->countAllResults();
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            [
+                'dip' => $this->getModel('beritappid')
+                    ->getAllDataPPID(BeritaPPID::KATEGORI_PPID)
+                    ->get()
+                    ->getResultArray()
+            ]
+        );
 
-
-        $data = $this->sidebarData('ppid');
-        $data['dip'] = $this->beritappid->getAllDataPPID(BeritaPPID::KATEGORI_PPID)->get()->getResultArray();
-
-        // dd($data['dip']);
         return view('frontend/dip', $data);
     }
 
+    /**
+     * Display PPID news by category
+     */
     public function beritaKategoriPPID($kategoriPpid)
     {
-
-        $list = $this->beritappid->where('kategori_id', $kategoriPpid)->where('status', 'Y')->where('nm_status', 'Publish')->orderBy('tanggal', 'desc')->findAll();
-        $data['selectedKategori'] = $kategoriPpid;
-
+        $beritaList = $this->getModel('beritappid')
+            ->where('kategori_id', $kategoriPpid)
+            ->where('status', self::STATUS_ACTIVE)
+            ->where('nm_status', 'Publish')
+            ->orderBy('tanggal', 'desc')
+            ->findAll();
 
         $context = in_array($kategoriPpid, BeritaPPID::KATEGORI_PPID) ? 'ppid' : 'pkrs';
 
         $data = array_merge(
             $this->sidebarData($context),
             [
-                'beritappid'       => $list,
+                'beritappid' => $beritaList,
                 'selectedKategori' => $kategoriPpid,
             ]
         );
 
-        // // cek apakah kategori termasuk KATEGORI_PPID atau KATEGORI_PKRS
-        // if (in_array($kategoriPpid, BeritaPPID::KATEGORI_PPID)) {
-        //     $data += $this->loadBeritaKategori(BeritaPPID::KATEGORI_PPID);
-        //     $data['url'] = 'dip';
-        //     $data['title'] = 'Daftar Informasi Publik';
-        // } else {
-        //     $data += $this->loadBeritaKategori(BeritaPPID::KATEGORI_PKRS);
-        //     $data['url'] = 'pkrs';
-        //     $data['title'] = 'Media Informasi PKRS';
-        // }
-
-
-
-        // Load sidebar data untuk kategori PPID
         return view('frontend/berita-kategori-ppid', $data);
     }
 
+    /**
+     * Display PPID news detail page
+     */
     public function beritaDetailPPID($idBeritaPpid)
     {
-        $data['beritaDetailPpid'] = $this->beritappid->where('idberita', $idBeritaPpid)->first();
+        $beritaModel = $this->getModel('beritappid');
+        $beritaDetail = $beritaModel->where('idberita', $idBeritaPpid)->first();
 
-        if (!$data['beritaDetailPpid']) {
+        if (!$beritaDetail) {
             throw new \CodeIgniter\Exceptions\PageNotFoundException('Berita Tidak Ditemukan');
         }
 
-        $this->beritappid->incrementViewCount($data['beritaDetailPpid']['idberita']);
-        $detail = $this->beritappid->getBeritaPpidById($idBeritaPpid);
+        // Increment view count
+        $beritaModel->incrementViewCount($beritaDetail['idberita']);
+        $detail = $beritaModel->getBeritaPpidById($idBeritaPpid);
 
         $context = in_array($detail['kategori_id'], BeritaPPID::KATEGORI_PPID) ? 'ppid' : 'pkrs';
 
@@ -751,25 +1165,18 @@ class FrontendController extends BaseController
             $this->sidebarData($context),
             ['beritaDetailPpid' => $detail]
         );
-        // if (in_array($data['beritaDetailPpid']['kategori_id'], BeritaPPID::KATEGORI_PPID)) {
-        //     $data += $this->loadBeritaKategori(BeritaPPID::KATEGORI_PPID);
-        //     $data['url'] = 'dip';
-        //     $data['title'] = 'Daftar Informasi Publik';
-        // } else {
-        //     $data += $this->loadBeritaKategori(BeritaPPID::KATEGORI_PKRS);
-        //     $data['title'] = 'Media Informasi PKRS';
-        //     $data['url'] = 'pkrs';
-        // }
-
 
         return view('frontend/berita-detail-ppid', $data);
     }
+    /**
+     * Display PKRS information list
+     */
     public function daftarInformasiPkrs()
     {
         $data = array_merge(
             $this->sidebarData('pkrs'),
             [
-                'dip' => $this->beritappid
+                'dip' => $this->getModel('beritappid')
                     ->getAllDataPPID(BeritaPPID::KATEGORI_PKRS)
                     ->get()
                     ->getResultArray(),
@@ -779,129 +1186,209 @@ class FrontendController extends BaseController
         return view('frontend/dip', $data);
     }
 
-
-
+    /**
+     * Display PKRS news by slug
+     */
     public function pkrs($slug)
     {
-
-
-        $list = $this->beritappid->join('kategori_informasi_ppid', 'berita_ppid.kategori_id = kategori_informasi_ppid.idkategori')->where('kategori_informasi_ppid.slug', $slug)->where('kategori_informasi_ppid.status', 'Y')->where('nm_status', 'Publish')->orderBy('tanggal', 'desc')->findAll();
-        $data['selectedKategori'] = $slug;
-
+        $beritaList = $this->getModel('beritappid')
+            ->join('kategori_informasi_ppid', 'berita_ppid.kategori_id = kategori_informasi_ppid.idkategori')
+            ->where('kategori_informasi_ppid.slug', $slug)
+            ->where('kategori_informasi_ppid.status', self::STATUS_ACTIVE)
+            ->where('nm_status', 'Publish')
+            ->orderBy('tanggal', 'desc')
+            ->findAll();
 
         $data = array_merge(
             $this->sidebarData('pkrs'),
             [
-                'beritappid'       => $list,
+                'beritappid' => $beritaList,
                 'selectedKategori' => $slug,
             ]
         );
-        // $data += $this->loadBeritaKategori(BeritaPPID::KATEGORI_PKRS);
-        // $data['url'] = 'pkrs';
-        // $data['title'] = 'Media Informasi PKRS';
-
 
         return view('frontend/pkrs', $data);
     }
 
+    /**
+     * Display hospital facilities page
+     */
     public function saranaRumahSakit()
     {
-
-        $data = $this->sidebarData('ppid');
-
-        $data['profilPpid'] = $this->profilPPID->first();
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            ['profilPpid' => $this->getModel('profilPPID')->first()]
+        );
 
         return view('frontend/sarana', $data);
     }
 
+    /**
+     * Display PPID SOP page
+     */
     public function sopPPID()
     {
         $data = $this->sidebarData('ppid');
         return view('frontend/sop-ppid', $data);
     }
+
+    /**
+     * Display cost standards page
+     */
     public function standarBiaya()
     {
-        $data = $this->sidebarData('ppid');
-        $data['profilPpid'] = $this->profilPPID->first();
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            ['profilPpid' => $this->getModel('profilPPID')->first()]
+        );
 
         return view('frontend/standar-biaya', $data);
     }
+
+    /**
+     * Display elderly and disabled services page
+     */
     public function layananLansiaDanDifabel()
     {
-        $data = $this->sidebarData('ppid');
-        $data['profilPpid'] = $this->profilPPID->first();
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            ['profilPpid' => $this->getModel('profilPPID')->first()]
+        );
 
         return view('frontend/layanan-lansia', $data);
     }
 
+    /**
+     * Display complaint procedures page
+     */
     public function tataCaraPengaduan()
     {
-        $data = $this->sidebarData('ppid');
-        $data['profilPpid'] = $this->profilPPID->first();
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            ['profilPpid' => $this->getModel('profilPPID')->first()]
+        );
 
         return view('frontend/tata-cara-pengaduan', $data);
     }
+
+    /**
+     * Display evacuation procedures page
+     */
     public function prosedurEvakuasi()
     {
-        $data = $this->sidebarData('ppid');
-        $data['profilPpid'] = $this->profilPPID->first();
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            ['profilPpid' => $this->getModel('profilPPID')->first()]
+        );
 
         return view('frontend/prosedur-evakuasi', $data);
     }
 
+    /**
+     * Display service flow page
+     */
     public function alurPelayanan($slug)
     {
-        $data = $this->sidebarData('ppid');
-        $data['alurPelayanan'] = $this->pages->where('status', 'Y')->where('slug', $slug)->first();
+        $data = array_merge(
+            $this->sidebarData('ppid'),
+            [
+                'alurPelayanan' => $this->getModel('pages')
+                    ->where('status', self::STATUS_ACTIVE)
+                    ->where('slug', $slug)
+                    ->first()
+            ]
+        );
+        
         return view('frontend/alur-pelayanan', $data);
     }
 
+    /**
+     * Display PPID online form page
+     */
     public function formPPIDOnline()
     {
         $data = $this->sidebarData('ppid');
-
         return view('frontend/form-ppid-online', $data);
     }
+
+    /**
+     * Display PPID objection form page
+     */
     public function formKeberatanInformasiPPIDOnline()
     {
         $data = $this->sidebarData('ppid');
-
         return view('frontend/form-keberatan-informasi-online', $data);
     }
+
+    /**
+     * Display information fulfillment time page
+     */
     public function waktuPemenuhanInformasi()
     {
-        $data['permohonaninformasi'] = $this->permohononanInformasi->orderBy('tanggal', 'desc')->findAll();
-        $data['keberataninformasi'] = $this->keberatanInformasi->orderBy('tanggal', 'desc')->findAll();
+        $data = [
+            'permohonaninformasi' => $this->getModel('permohononanInformasi')
+                ->orderBy('tanggal', 'desc')
+                ->findAll(),
+            'keberataninformasi' => $this->getModel('keberatanInformasi')
+                ->orderBy('tanggal', 'desc')
+                ->findAll()
+        ];
 
         return view('frontend/waktu-pemenuhan-informasi', $data);
     }
+
+    /**
+     * Display innovation list page
+     */
     public function daftarInovasi()
     {
-        $data['inovasi'] = $this->daftarinovasi->orderBy('tahun', 'desc')->findAll();
+        $data = [
+            'inovasi' => $this->getModel('daftarinovasi')
+                ->orderBy('tahun', 'desc')
+                ->findAll()
+        ];
+        
         return view('frontend/daftar-inovasi', $data);
     }
+
+    /**
+     * Display innovation detail page
+     */
     public function detailInovasi($id)
     {
-        $data['inovasi'] = $this->daftarinovasi->find($id);
+        $data = [
+            'inovasi' => $this->getModel('daftarinovasi')->find($id)
+        ];
+        
         return view('frontend/detail-inovasi', $data);
     }
 
 
 
+    /**
+     * API endpoint for polyclinic schedule
+     */
     public function apiJadwalPoli()
     {
-        $jadwalPoli = $this->jadwalpoli->getFormattedJadwalPoliWithDokter();
+        $jadwalPoli = $this->getModel('jadwalpoli')->getFormattedJadwalPoliWithDokter();
+        
         return $this->response->setJSON([
             'data' => $jadwalPoli
         ]);
     }
 
+    /**
+     * Display bio link page
+     */
     public function linkBio()
     {
         return view('frontend/bio');
     }
 
-    public function generateSign($data, $xtimestamp)
+    /**
+     * Generate signature for API authentication
+     */
+    private function generateSign(array $data, int $xtimestamp): string
     {
         $key = $data["X_ID"] . "&" . $xtimestamp;
         return base64_encode(
@@ -909,72 +1396,58 @@ class FrontendController extends BaseController
         );
     }
 
+    /**
+     * Display room information (BPJS integration)
+     * Note: This method contains commented code for BPJS API integration
+     */
     public function kamar()
     {
         date_default_timezone_set('UTC');
 
-        //     'aplicares' => [
-        //     'url' => 'https://new-api.bpjs-kesehatan.go.id/aplicaresws/rest',
-        //     'id' => '21308',
-        //     'key' => '5rVC94D0CF',
-        //             'koders' => '0302R001',
-        //             'timezone' => 'UTC',
-        //     'addTime' => 'PT0M',
-        //             'writeLog' => false,
-        //   ],
-
-        $data = [
-            'X_ID'   => '21308',
-            'X_PASS' => '5rVC94D0CF'
+        // BPJS API configuration
+        $apiConfig = [
+            'X_ID' => '21308',
+            'X_PASS' => '5rVC94D0CF',
+            'cons_id' => '21308',
+            'secret_key' => '5rVC94D0CF',
+            'user_key' => '8c2756b1374e314d69eb9fa93e3a0a99',
+            'kode_rs' => '0302R001',
+            'start' => 1,
+            'limit' => 1
         ];
 
-        $cons_id    = "21308";
-        $secret_key = "5rVC94D0CF";
-        $user_key   = "8c2756b1374e314d69eb9fa93e3a0a99";
-        $kode_rs    = "0302R001";
-        $start      = 1;
-        $limit      = 1;
+        $timestamp = time();
+        $signature = $this->generateSign($apiConfig, $timestamp);
 
-        $timestamp  = time();
-        $signature  = $this->generateSign($data, $timestamp);
-
+        // For debugging purposes
         print_r([$signature, $timestamp]);
-        // return $signature;
+        
+        // TODO: Implement actual BPJS API call when needed
+        // The commented code below shows how to make the API call
+        /*
+        $url = "https://dvlp.bpjs-kesehatan.go.id:8888/aplicaresws/rest/bed/read/{$apiConfig['kode_rs']}/{$apiConfig['start']}/{$apiConfig['limit']}";
+        
+        $headers = [
+            'X-cons-id' => $apiConfig['cons_id'],
+            'X-timestamp' => $timestamp,
+            'X-signature' => $signature,
+            'user_key' => $apiConfig['user_key'],
+            'Accept' => 'application/json',
+        ];
 
-        // $signature  = base64_encode(
-        //     hash_hmac('sha256', $cons_id . "&" . $timestamp, $secret_key, true)
-        // );
+        $curl = \Config\Services::curlrequest();
+        try {
+            $response = $curl->request('GET', $url, [
+                'headers' => $headers,
+                'verify' => false
+            ]);
 
-
-        // $url = "https://dvlp.bpjs-kesehatan.go.id:8888/aplicaresws/rest/bed/read/{$kode_rs}/{$start}/{$limit}";
-
-        // // {Base URL}/aplicaresws/rest/bed/delete/{kodeppk}
-
-        // // $url = "https://dvlp.bpjs-kesehatan.go.id:8888/aplicaresws/rest/bed/delete/{$kode_rs}";
-
-        // $headers = [
-        //     'X-cons-id'   => $cons_id,
-        //     'X-timestamp' => $timestamp,
-        //     'X-signature' => $signature,
-        //     'user_key'    => $user_key,
-        //     'Accept'      => 'application/json',
-        // ];
-
-
-        // $curl = \Config\Services::curlrequest();
-        // try {
-        //     $response = $curl->request('GET', $url, [
-        //         'headers' => $headers,
-        //         'verify' => false // untuk development SSL
-        //     ]);
-
-        //     $body = $response->getBody();
-        //     $result = json_decode($body, true);
-
-        //     // Tampilkan hasilnya
-        //     return view('kamar', ['data' => $result]);
-        // } catch (\Exception $e) {
-        //     return $e->getMessage();
-        // }
+            $body = $response->getBody();
+            $result = json_decode($body, true);
+            return view('kamar', ['data' => $result]);
+        } catch (\Exception $e) {
+            return $e->getMessage();
+        }
+        */
     }
 }
