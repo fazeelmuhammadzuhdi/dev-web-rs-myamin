@@ -2,76 +2,109 @@
 
 namespace App\Controllers\Backend;
 
-use DOMDocument;
 use App\Models\User;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
 
+/**
+ * UserController handles user management functionality
+ * 
+ * This controller manages user creation, editing, deletion, and display
+ * with proper validation and security measures.
+ */
 class UserController extends BaseController
 {
-    protected $user;
+    // Constants for better maintainability
+    private const ROLE_SUPER_ADMIN = 'SU';
+    private const ROLE_USER = 'US';
+    private const STATUS_ACTIVE = 'A';
+    private const STATUS_INACTIVE = 'I';
+    private const MIN_PASSWORD_LENGTH = 8;
+    
+    // Model instance
+    private User $userModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->user = new User();
+        $this->userModel = new User();
     }
 
+    /**
+     * Display user index page
+     */
     public function index()
     {
-        $data['title'] = 'User';
-
+        $data = ['title' => 'User'];
         return view('backend/user/index', $data);
     }
 
+    /**
+     * Display user creation form
+     */
     public function create()
     {
         return view('backend/user/create');
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->user->select('iduser,username,nama,role,status');
-            return DataTable::of($builder)
-                ->edit('role', function ($row) {
-                    if ($row->role == 'SU') {
-                        return '<span class="badge badge-success">Super Admin</span>';
-                    } else {
-                        return '<span class="badge badge-danger">User</span>';
-                    }
-                })
-                ->edit('status', function ($row) {
-                    if ($row->status == 'A') {
-                        return '<span class="badge badge-success">Aktif</span>';
-                    } else {
-                        return '<span class="badge badge-danger">Tidak Aktif</span>';
-                    }
-                })
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" nama="Hapus Data" onclick="hapus(\'' . $row->iduser . '\',\'' . $row->username . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" nama="Edit Data" onclick="edit(\'' . $row->iduser . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->userModel->select('iduser,username,nama,role,status');
+        
+        return DataTable::of($builder)
+            ->edit('role', function ($row) {
+                return $this->formatRoleBadge($row->role);
+            })
+            ->edit('status', function ($row) {
+                return $this->formatStatusBadge($row->status, ['A' => ['class' => 'badge-success', 'text' => 'Aktif'], 'I' => ['class' => 'badge-danger', 'text' => 'Tidak Aktif']]);
+            })
+            ->add('action', function ($row) {
+                return $this->formatUserActionButtons($row->iduser, $row->username);
+            }, 'last')
+            ->toJson();
+    }
+
+    /**
+     * Format role badge
+     */
+    private function formatRoleBadge(string $role): string
+    {
+        if ($role === self::ROLE_SUPER_ADMIN) {
+            return '<span class="badge badge-success">Super Admin</span>';
+        }
+        
+        return '<span class="badge badge-danger">User</span>';
+    }
+
+    /**
+     * Format action buttons - using BaseController protected method
+     */
+    private function formatUserActionButtons(int $id, string $username): string
+    {
+        return $this->formatActionButtons($id, $username);
     }
 
 
-    private function isValidPassword($password)
+    /**
+     * Validate password strength
+     */
+    private function isValidPassword(string $password): bool
     {
-        // Panjang minimal 8 karakter
-        if (strlen($password) < 8) {
+        // Check minimum length
+        if (strlen($password) < self::MIN_PASSWORD_LENGTH) {
             return false;
         }
 
-        // Kombinasi huruf besar, huruf kecil, simbol, dan angka
+        // Check for uppercase, lowercase, number, and special character
         if (
             !preg_match('/[A-Z]/', $password) ||
             !preg_match('/[a-z]/', $password) ||
@@ -81,163 +114,160 @@ class UserController extends BaseController
             return false;
         }
 
-        // // Tidak ada perulangan karakter
-        // if (preg_match('/(.).*\1/', $password)) {
-        //     return false;
-        // }
-
         return true;
     }
 
-    public function save()
+    /**
+     * Get password validation error message
+     */
+    private function getPasswordErrorMessage(): string
     {
-        $nama = $this->request->getVar('nama');
-        $role = $this->request->getVar('role');
-        $username = $this->request->getVar('username');
-        $password = $this->request->getVar('password');
-
-        // Validasi kata sandi
-        if (!$this->isValidPassword($password)) {
-            session()->setFlashdata('error_password', 'Password tidak valid. Pastikan panjang minimal 8 karakter, terdiri dari huruf besar, huruf kecil, simbol, dan angka');
-            return redirect()->back()->withInput();
-        }
-
-        $rules = $this->validate([
-
-            'nama' => [
-                'label' => 'Nama User',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'username' => [
-                'label' => 'Username User',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'password' => [
-                'label' => 'Password User',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_nama' => $validation->getError('nama'),
-                'error_username' => $validation->getError('username'),
-                'error_password' => $validation->getError('password'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $this->user->insert([
-                'nama' => $nama,
-                'username' => $username,
-                'password' => password_hash($this->request->getVar('password'), PASSWORD_DEFAULT),
-                'role' => $role ? $role : 'US',
-                'usercreate' => date('Y-m-d H:i:s'),
-            ]);
-
-            session()->setFlashdata('success', 'Data User Berhasil Di Tambahkan');
-            return redirect()->to('/users');
-        }
+        return 'Password tidak valid. Pastikan panjang minimal ' . self::MIN_PASSWORD_LENGTH . ' karakter, terdiri dari huruf besar, huruf kecil, simbol, dan angka';
     }
 
+    /**
+     * Get user validation rules
+     */
+    private function getUserValidationRules(bool $isCreate = true): array
+    {
+        $rules = [
+            'nama' => [
+                'label' => 'Nama User',
+                'rules' => 'required|min_length[3]|max_length[100]',
+                'errors' => [
+                    'required' => 'Nama user harus diisi',
+                    'min_length' => 'Nama minimal 3 karakter',
+                    'max_length' => 'Nama maksimal 100 karakter'
+                ]
+            ],
+            'username' => [
+                'label' => 'Username',
+                'rules' => 'required|min_length[3]|max_length[50]',
+                'errors' => [
+                    'required' => 'Username harus diisi',
+                    'min_length' => 'Username minimal 3 karakter',
+                    'max_length' => 'Username maksimal 50 karakter'
+                ]
+            ]
+        ];
+
+        if ($isCreate) {
+            $rules['password'] = [
+                'label' => 'Password',
+                'rules' => 'required|min_length[' . self::MIN_PASSWORD_LENGTH . ']',
+                'errors' => [
+                    'required' => 'Password harus diisi',
+                    'min_length' => 'Password minimal ' . self::MIN_PASSWORD_LENGTH . ' karakter'
+                ]
+            ];
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Save new user
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['nama', 'role', 'username', 'password']);
+        $password = $data['password'];
+
+        // Validate password strength
+        if (!$this->isValidPassword($password)) {
+            session()->setFlashdata('error_password', $this->getPasswordErrorMessage());
+            return redirect()->back()->withInput();
+        }
+
+        $rules = $this->getUserValidationRules(true);
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['nama', 'username', 'password']);
+        }
+
+        $this->userModel->insert([
+            'nama' => $data['nama'],
+            'username' => $data['username'],
+            'password' => password_hash($password, PASSWORD_DEFAULT),
+            'role' => $data['role'] ?: self::ROLE_USER,
+            'status' => self::STATUS_ACTIVE,
+            'usercreate' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->setSuccessMessage('Data User Berhasil Ditambahkan', '/users');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['user'] = $this->user->find($id);
+        $data = ['user' => $this->userModel->find($id)];
         return view('backend/user/edit', $data);
     }
 
+    /**
+     * Update existing user
+     */
     public function update()
     {
-
         $idUser = $this->request->getVar('iduser');
-        $findById = $this->user->find($this->request->getPost('iduser'));
-        $nama = $this->request->getVar('nama');
-        $role = $this->request->getVar('role');
-        $username = $this->request->getVar('username');
-        $status = $this->request->getVar('status');
+        $data = $this->getFormData(['nama', 'role', 'username', 'status', 'password']);
+        $password = $data['password'];
+        
+        $existingUser = $this->userModel->find($idUser);
 
-        $password = $this->request->getVar('password');
-
-
-        // Jika password dan konfirmasi password diisi, lakukan validasi
-        if (!empty($password) || !empty($confirmpassword)) {
-            // Validasi kata sandi
+        // Validate password if provided
+        if (!empty($password)) {
             if (!$this->isValidPassword($password)) {
-                session()->setFlashdata('error_password', 'Password tidak valid. Pastikan panjang minimal 8 karakter, terdiri dari huruf besar, huruf kecil, simbol, dan angka');
+                session()->setFlashdata('error_password', $this->getPasswordErrorMessage());
                 return redirect()->back()->withInput();
             }
-            $password = password_hash($this->request->getVar('password'), PASSWORD_DEFAULT);
+            $password = password_hash($password, PASSWORD_DEFAULT);
         }
 
+        $rules = $this->getUserValidationRules(false);
 
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['nama', 'username']);
+        }
 
-        $rules = $this->validate([
+        $updateData = [
+            'nama' => $data['nama'],
+            'username' => $data['username'],
+            'role' => $data['role'] ?: self::ROLE_USER,
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+        ];
 
-            'nama' => [
-                'label' => 'Nama User',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'username' => [
-                'label' => 'Username User',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_nama' => $validation->getError('nama'),
-                'error_username' => $validation->getError('username'),
-            ]);
-            return redirect()->back()->withInput();
+        // Only update password if new password is provided
+        if (!empty($password)) {
+            $updateData['password'] = $password;
         } else {
-            $data = [
-                'nama' => $nama,
-                'username' => $username,
-                'password' => ($this->request->getPost('password')) ? $password : $findById['password'],
-                'role' => $role ? $role : 'US',
-                'status' => $status ? $status : 'A',
-            ];
-
-            $this->user->update($idUser, $data);
-
-            session()->setFlashdata('success', 'Data User Berhasil Di Update');
-            return redirect()->to('/users');
+            $updateData['password'] = $existingUser['password'];
         }
+
+        $this->userModel->update($idUser, $updateData);
+
+        return $this->setSuccessMessage('Data User Berhasil Di Update', '/users');
     }
 
+    /**
+     * Delete user
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $username = $this->user->find($id);
-
-            if ($username) {
-                $this->user->delete($id);
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $user = $this->userModel->find($id);
+
+        if (!$user) {
+            return $this->jsonError('User tidak ditemukan', 404);
+        }
+
+        $this->userModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }

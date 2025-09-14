@@ -2,261 +2,327 @@
 
 namespace App\Controllers\Backend;
 
-use DOMDocument;
 use App\Models\IndikatorMutu;
 use App\Models\IndikatorMutuList;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
 
+/**
+ * IndikatorMutuListController handles quality indicator list management functionality
+ * 
+ * This controller manages quality indicator lists including creation, editing, deletion, and display
+ * with image handling and relationship management with quality indicators.
+ */
 class IndikatorMutuListController extends BaseController
 {
-    protected $indikatormutulist;
-    protected $indikatormutu;
+    // Constants for better maintainability
+    private const MAX_FILE_SIZE = 1024; // 1MB
+    private const ALLOWED_IMAGE_TYPES = 'image/jpeg,image/png,image/jpg';
+    private const STATUS_ACTIVE = 'Y';
+    private const STATUS_INACTIVE = 'N';
+    
+    // Model instances
+    private IndikatorMutuList $indikatorMutuListModel;
+    private IndikatorMutu $indikatorMutuModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->indikatormutulist = new IndikatorMutuList();
-        $this->indikatormutu = new IndikatorMutu();
+        $this->indikatorMutuListModel = new IndikatorMutuList();
+        $this->indikatorMutuModel = new IndikatorMutu();
     }
 
+    /**
+     * Display quality indicator list index page
+     */
     public function index()
     {
-        $data['title'] = 'Indikator Mutu List';
+        $data = ['title' => 'Indikator Mutu List'];
         return view('backend/indikatormutulist/index', $data);
     }
 
+    /**
+     * Display quality indicator list creation form
+     */
     public function create()
     {
-        $data['indikatormutu'] = $this->indikatormutu->findAll();
+        $data = ['indikatormutu' => $this->indikatorMutuModel->findAll()];
         return view('backend/indikatormutulist/create', $data);
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->indikatormutulist->getIndikatorMutuList();
-
-
-            return DataTable::of($builder)
-                ->edit('status', function ($row) {
-                    if ($row->status == 'Y') {
-                        return '<span class="badge badge-success">Aktif</span>';
-                    } else {
-                        return '<span class="badge badge-warning">Tidak Aktif</span>';
-                    }
-                })
-                ->edit('gambar', function ($row) {
-                    if ($row->gambar !== null) {
-                        $imageUrl = base_url('indikatormutulist/' . $row->gambar);
-                        return '<a href="' . $imageUrl . '" target="_blank"><img src="' . $imageUrl . '" width="200" height="60"></a>';
-                    } else {
-                        return '';
-                    }
-                })
-                ->edit('keterangan', function ($row) {
-                    if ($row->keterangan) {
-                        $doc = new DOMDocument();
-                        @$doc->loadHTML($row->keterangan);
-                        return $doc->textContent; // Menghapus tag HTML
-                    }
-                    return '-';
-                })
-
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" nama="Hapus Data" onclick="hapus(\'' . $row->idindikatormutulist . '\',\'' . $row->nama . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" nama="Edit Data" onclick="edit(\'' . $row->idindikatormutulist . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->indikatorMutuListModel->getIndikatorMutuList();
+
+        return DataTable::of($builder)
+            ->edit('status', function ($row) {
+                return $this->formatStatusBadge($row->status);
+            })
+            ->edit('gambar', function ($row) {
+                return $this->formatImageColumn($row->gambar);
+            })
+            ->edit('keterangan', function ($row) {
+                return $this->formatDescriptionColumn($row->keterangan);
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idindikatormutulist, $row->nama);
+            }, 'last')
+            ->toJson();
     }
 
-
-    public function save()
+    /**
+     * Format status badge
+     */
+    private function formatStatusBadge(string $status): string
     {
-        $indikatorMutuId = $this->request->getVar('indikator_mutu_id');
-        $keterangan = $this->request->getVar('keterangan');
-        $status = $this->request->getVar('status');
+        if ($status === self::STATUS_ACTIVE) {
+            return '<span class="badge badge-success">Aktif</span>';
+        }
+        
+        return '<span class="badge badge-warning">Tidak Aktif</span>';
+    }
 
-        $rules = $this->validate([
+    /**
+     * Format image column
+     */
+    private function formatImageColumn(?string $gambar): string
+    {
+        if ($gambar) {
+            $imageUrl = base_url('indikatormutulist/' . $gambar);
+            return '<a href="' . $imageUrl . '" target="_blank" rel="noopener noreferrer">
+                <img src="' . $imageUrl . '" width="200" height="60" alt="Quality Indicator Image">
+            </a>';
+        }
+        
+        return '';
+    }
 
+    /**
+     * Format description column
+     */
+    private function formatDescriptionColumn(?string $keterangan): string
+    {
+        if ($keterangan) {
+            // Strip HTML tags and limit length
+            $text = strip_tags($keterangan);
+            return strlen($text) > 100 ? substr($text, 0, 100) . '...' : $text;
+        }
+        
+        return '-';
+    }
+
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $nama): string
+    {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($nama) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
+
+    /**
+     * Get quality indicator list validation rules
+     */
+    private function getQualityIndicatorListValidationRules(bool $requireImage = false): array
+    {
+        $rules = [
             'indikator_mutu_id' => [
                 'label' => 'Nama Indikator Mutu',
-                'rules' => 'required',
+                'rules' => 'required|integer|greater_than[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Nama indikator mutu harus diisi',
+                    'integer' => 'Indikator mutu harus berupa angka',
+                    'greater_than' => 'Indikator mutu harus dipilih'
                 ]
             ],
-
             'keterangan' => [
                 'label' => 'Keterangan Indikator Mutu List',
-                'rules' => 'required',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Keterangan indikator mutu list harus diisi',
+                    'min_length' => 'Keterangan minimal 10 karakter'
                 ]
-            ],
-            'gambar' => [
+            ]
+        ];
+
+        if ($requireImage) {
+            $rules['gambar'] = [
                 'label' => 'Gambar Indikator Mutu List',
-                'rules' => 'uploaded[gambar]|max_size[gambar,1024]|mime_in[gambar,image/jpeg,image/png,image/jpg]',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
                 'errors' => [
-                    'uploaded' => '{field} tidak boleh kosong',
-                    'max_size' => 'Ukuran {field} maksimum 1MB',
-                    'mime_in' => 'Format {field} harus JPEG ,PNG atau JPG'
+                    'uploaded' => 'Gambar indikator mutu list harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
                 ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_indikator_mutu_id' => $validation->getError('indikator_mutu_id'),
-                'error_keterangan' => $validation->getError('keterangan'),
-                'error_gambar' => $validation->getError('gambar'),
-            ]);
-            return redirect()->back()->withInput();
+            ];
         } else {
-            $fileFoto = $this->request->getFile('gambar');
+            $rules['gambar'] = [
+                'label' => 'Gambar Indikator Mutu List',
+                'rules' => 'max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
+                ]
+            ];
+        }
 
-            $namaFoto = "Indikatormutulist" . '_' . $fileFoto->getRandomName();
-            // Pindahkan file foto ke folder tujuan (public/indikatormutulist)
+        return $rules;
+    }
+
+    /**
+     * Process image upload
+     */
+    private function processImageUpload(): ?string
+    {
+        $fileFoto = $this->request->getFile('gambar');
+        
+        if ($fileFoto->isValid() && !$fileFoto->hasMoved()) {
+            $namaFoto = "Indikatormutulist_" . $fileFoto->getRandomName();
             $fileFoto->move(FCPATH . 'indikatormutulist', $namaFoto);
-
-            $this->indikatormutulist->insert([
-                'indikator_mutu_id' => $indikatorMutuId,
-                'keterangan' => $keterangan,
-                'status' => $status ? $status : 'Y',
-                'gambar' => $namaFoto,
-                'created_at' => date('Y-m-d H:i:s'),
+            
+            // Optimize image
+            optimizeImageForWeb('indikatormutulist/' . $namaFoto, [
+                'width' => 400,
+                'height' => 300,
+                'quality' => 85
             ]);
+            
+            return $namaFoto;
+        }
+        
+        return null;
+    }
 
-
-
-            session()->setFlashdata('success', 'Data Indikatormutulist Berhasil Di Tambahkan');
-            return redirect()->to('/indikatormutulists');
+    /**
+     * Delete old image
+     */
+    private function deleteOldImage(string $imagePath): void
+    {
+        if ($imagePath && file_exists(FCPATH . 'indikatormutulist/' . $imagePath)) {
+            $this->deleteFile('indikatormutulist/' . $imagePath);
         }
     }
 
+    /**
+     * Save new quality indicator list
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['indikator_mutu_id', 'keterangan', 'status']);
+
+        $rules = $this->getQualityIndicatorListValidationRules(true);
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['indikator_mutu_id', 'keterangan', 'gambar']);
+        }
+
+        $newImage = $this->processImageUpload();
+        if (!$newImage) {
+            session()->setFlashdata('error_gambar', 'Gambar indikator mutu list harus diisi');
+            return redirect()->back()->withInput();
+        }
+
+        $this->indikatorMutuListModel->insert([
+            'indikator_mutu_id' => $data['indikator_mutu_id'],
+            'keterangan' => $data['keterangan'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'gambar' => $newImage,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->setSuccessMessage('Data Indikatormutulist Berhasil Ditambahkan', '/indikatormutulists');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['indikatormutu'] = $this->indikatormutu->findAll();
-        $data['indikatormutulists'] = $this->indikatormutulist->find($id);
+        $data = [
+            'indikatormutu' => $this->indikatorMutuModel->findAll(),
+            'indikatormutulists' => $this->indikatorMutuListModel->find($id)
+        ];
         return view('backend/indikatormutulist/edit', $data);
     }
 
+    /**
+     * Update existing quality indicator list
+     */
     public function update()
     {
+        $data = $this->getFormData(['idindikatormutulist', 'indikator_mutu_id', 'keterangan', 'status']);
+        $idIndikatormutulist = $data['idindikatormutulist'];
 
-        $idIndikatormutulist = $this->request->getVar('idindikatormutulist');
-        $indikatorMutuId = $this->request->getVar('indikator_mutu_id');
-        $keterangan = $this->request->getVar('keterangan');
         $gambar = $this->request->getFile('gambar');
-        $status = $this->request->getVar('status');
+        $requireImage = $gambar->isValid() && !$gambar->hasMoved();
+        
+        $rules = $this->getQualityIndicatorListValidationRules(false);
 
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['indikator_mutu_id', 'keterangan', 'gambar']);
+        }
 
-        $rules = [
-
-            'indikator_mutu_id' => [
-                'label' => 'Nama Indikator Mutu',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'keterangan' => [
-                'label' => 'Keterangan Indikator Mutu List',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
+        $updateData = [
+            'indikator_mutu_id' => $data['indikator_mutu_id'],
+            'keterangan' => $data['keterangan'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
         ];
 
-        if ($gambar->isValid() && !$gambar->hasMoved()) {
-            // Validasi gambar
-            $rules['gambar'] = 'uploaded[gambar]|mime_in[gambar,image/jpeg,image/png]|max_size[gambar,1024]';
-        }
-
-        $validation = \Config\Services::validation();
-        $isValid = $validation->withRequest($this->request)->setRules($rules)->run();
-
-        if (!$isValid) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_indikator_mutu_id' => $validation->getError('indikator_mutu_id'),
-                'error_keterangan' => $validation->getError('keterangan'),
-                'error_gambar' => $validation->getError('gambar'),
-            ]);
-
-            return redirect()->back()->withInput();
-        } else {
-
-            // Menghapus foto lama jika ada foto baru diunggah
-            if ($gambar->isValid() && !$gambar->hasMoved()) {
-                $indikatormutulist = $this->indikatormutulist->find($idIndikatormutulist);
-                if ($indikatormutulist['gambar'] !== null) {
-                    $oldFotoPath = FCPATH . 'indikatormutulist/' . $indikatormutulist['gambar'];
-                    if (file_exists($oldFotoPath)) {
-                        unlink($oldFotoPath);
-                    }
-                }
-
-                $newFotoName = "Indikatormutulist" . '_' . $gambar->getRandomName();
-                $gambar->move(FCPATH . 'indikatormutulist', $newFotoName);
-
-                // Update data indikatormutulist dengan foto baru
-                $this->indikatormutulist->update($idIndikatormutulist, [
-                    'indikator_mutu_id' => $indikatorMutuId,
-                    'keterangan' => $keterangan,
-                    'status' => $status ? $status : 'Y',
-                    'gambar' => $newFotoName,
-                ]);
-            } else {
-                // Jika tidak ada foto baru diunggah, update data indikatormutulist tanpa foto
-                $this->indikatormutulist->update($idIndikatormutulist, [
-                    'indikator_mutu_id' => $indikatorMutuId,
-                    'keterangan' => $keterangan,
-                    'status' => $status ? $status : 'Y',
-                ]);
+        // Handle image update
+        if ($requireImage) {
+            $existingList = $this->indikatorMutuListModel->find($idIndikatormutulist);
+            if ($existingList && $existingList['gambar']) {
+                $this->deleteOldImage($existingList['gambar']);
             }
-
-            session()->setFlashdata('success', 'Data Indikator Mutu List Berhasil Di Update');
-            return redirect()->to('/indikatormutulists');
+            
+            $newImage = $this->processImageUpload();
+            if ($newImage) {
+                $updateData['gambar'] = $newImage;
+            }
         }
+
+        $this->indikatorMutuListModel->update($idIndikatormutulist, $updateData);
+
+        return $this->setSuccessMessage('Data Indikator Mutu List Berhasil Di Update', '/indikatormutulists');
     }
 
+    /**
+     * Delete quality indicator list
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $cekReferensi = $this->indikatormutulist->find($id);
-
-            if ($cekReferensi) {
-                // Menghapus foto jika ada
-                if ($cekReferensi['gambar'] !== null) {
-                    $fotoPath = FCPATH . 'indikatormutulist/' . $cekReferensi['gambar'];
-                    if (file_exists($fotoPath)) {
-                        unlink($fotoPath);
-                    }
-                }
-
-                // Menghapus data dari database
-                $this->indikatormutulist->delete($id);
-
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $indikatorMutuList = $this->indikatorMutuListModel->find($id);
+
+        if (!$indikatorMutuList) {
+            return $this->jsonError('Data indikator mutu list tidak ditemukan', 404);
+        }
+
+        // Delete associated image
+        if ($indikatorMutuList['gambar']) {
+            $this->deleteOldImage($indikatorMutuList['gambar']);
+        }
+
+        $this->indikatorMutuListModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }

@@ -2,221 +2,284 @@
 
 namespace App\Controllers\Backend;
 
-use DOMDocument;
 use App\Models\Pesan;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
 
+/**
+ * PesanController handles message management functionality
+ * 
+ * This controller manages messages including creation, editing, deletion, and display
+ * with response handling and status management.
+ */
 class PesanController extends BaseController
 {
-    protected $pesan;
+    // Constants for better maintainability
+    private const STATUS_PUBLISHED = 'PB';
+    private const STATUS_UNPUBLISHED = 'UP';
+    private const STATUS_READ = 'R';
+    private const STATUS_UNREAD = 'UR';
+    
+    // Model instance
+    private Pesan $pesanModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->pesan = new Pesan();
+        $this->pesanModel = new Pesan();
     }
 
+    /**
+     * Display message index page
+     */
     public function index()
     {
-        $data['title'] = 'Pesan';
-
+        $data = ['title' => 'Pesan'];
         return view('backend/pesan/index', $data);
     }
 
-
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->pesan->select('idpesan,tanggal,nama,pesan,status,status_baca,respon')->orderBy('tanggal', 'DESC');
-            return DataTable::of($builder)
-                ->edit('status', function ($row) {
-                    if ($row->status == 'UP') {
-                        return '<span class="badge badge-danger">Unpbulish</span>';
-                    } else {
-                        return '<span class="badge badge-success">Publish</span>';
-                    }
-                })
-                ->edit('status_baca', function ($row) {
-                    if ($row->status == 'UR') {
-                        return '<span class="badge badge-danger">Belum Dibaca</span>';
-                    } else {
-                        return '<span class="badge badge-success">Dibaca</span>';
-                    }
-                })
-                ->edit('tanggal', function ($row) {
-                    return date('d M Y', strtotime($row->tanggal)); // Format tanggal sesuai kebutuhan
-                })
-                ->edit('respon', function ($row) {
-                    if ($row->respon) {
-                        $doc = new DOMDocument();
-                        @$doc->loadHTML($row->respon);
-                        $text =  $doc->textContent;
-
-                        $text =  limit_words($text, 10);
-
-
-                        return $text;
-                    }
-                    return '-';
-                })
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" nama="Hapus Data" onclick="hapus(\'' . $row->idpesan . '\',\'' . $row->nama . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" nama="Edit Data" onclick="edit(\'' . $row->idpesan . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->pesanModel->select('idpesan,tanggal,nama,pesan,status,status_baca,respon')
+            ->orderBy('tanggal', 'DESC');
+
+        return DataTable::of($builder)
+            ->edit('status', function ($row) {
+                return $this->formatStatusBadge($row->status);
+            })
+            ->edit('status_baca', function ($row) {
+                return $this->formatReadStatusBadge($row->status_baca);
+            })
+            ->edit('tanggal', function ($row) {
+                return date('d M Y', strtotime($row->tanggal));
+            })
+            ->edit('respon', function ($row) {
+                return $this->formatResponseColumn($row->respon);
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idpesan, $row->nama);
+            }, 'last')
+            ->toJson();
     }
 
-    public function edit($id = null)
+    /**
+     * Format status badge
+     */
+    private function formatStatusBadge(string $status): string
     {
-        if ($id !== null) {
-            // Update status baca pesan
-            $this->pesan->updateStatusBaca($id);
-
-            // Ambil data pesan dan tampilkan form edit
-            $data['pesan'] = $this->pesan->find($id);
-            return view('backend/pesan/edit', $data);
-        } else {
-            session()->setFlashdata('error', 'Data Tidak Ditemukan');
-            return redirect()->back();
+        if ($status === self::STATUS_UNPUBLISHED) {
+            return '<span class="badge badge-danger">Unpublish</span>';
         }
+        
+        return '<span class="badge badge-success">Publish</span>';
     }
 
-    public function save()
+    /**
+     * Format read status badge
+     */
+    private function formatReadStatusBadge(string $statusBaca): string
     {
-        $nama = $this->request->getVar('nama');
-        $email = $this->request->getVar('email');
-        $judul = $this->request->getVar('judul');
-        $pesan = $this->request->getVar('pesan');
+        if ($statusBaca === self::STATUS_UNREAD) {
+            return '<span class="badge badge-danger">Belum Dibaca</span>';
+        }
+        
+        return '<span class="badge badge-success">Dibaca</span>';
+    }
 
+    /**
+     * Format response column
+     */
+    private function formatResponseColumn(?string $respon): string
+    {
+        if ($respon) {
+            // Strip HTML tags and limit words
+            $text = strip_tags($respon);
+            return $this->limitWords($text, 10);
+        }
+        
+        return '-';
+    }
 
-        // debug
+    /**
+     * Limit words in text
+     */
+    private function limitWords(string $text, int $limit): string
+    {
+        $words = explode(' ', $text);
+        if (count($words) > $limit) {
+            return implode(' ', array_slice($words, 0, $limit)) . '...';
+        }
+        return $text;
+    }
 
-        // dd($nama, $email, $judul, $pesan);
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $nama): string
+    {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($nama) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
 
-        $rules = $this->validate([
+    /**
+     * Get message validation rules
+     */
+    private function getMessageValidationRules(): array
+    {
+        return [
             'nama' => [
                 'label' => 'Nama',
-                'rules' => 'required|alpha_space|max_length[50]',
+                'rules' => 'required|min_length[3]|max_length[50]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'alpha_space' => '{field} hanya boleh mengandung huruf, angka dan spasi',
+                    'required' => 'Nama tidak boleh kosong',
+                    'min_length' => 'Nama minimal 3 karakter',
+                    'max_length' => 'Nama maksimal 50 karakter'
                 ]
             ],
-
             'email' => [
                 'label' => 'Email',
-                'rules' => 'required',
+                'rules' => 'required|valid_email|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Email tidak boleh kosong',
+                    'valid_email' => 'Format email tidak valid',
+                    'max_length' => 'Email maksimal 100 karakter'
                 ]
             ],
-
             'judul' => [
                 'label' => 'Judul',
-                'rules' => 'required|alpha_space',
+                'rules' => 'required|min_length[5]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'alpha_space' => '{field} hanya boleh mengandung huruf, angka dan spasi',
+                    'required' => 'Judul tidak boleh kosong',
+                    'min_length' => 'Judul minimal 5 karakter',
+                    'max_length' => 'Judul maksimal 100 karakter'
                 ]
             ],
             'pesan' => [
                 'label' => 'Pesan',
-                'rules' => 'required|alpha_space',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'alpha_space' => '{field} hanya boleh mengandung huruf, angka dan spasi',
-
+                    'required' => 'Pesan tidak boleh kosong',
+                    'min_length' => 'Pesan minimal 10 karakter'
                 ]
-            ],
+            ]
+        ];
+    }
 
+    /**
+     * Get response validation rules
+     */
+    private function getResponseValidationRules(): array
+    {
+        return [
+            'respon' => [
+                'label' => 'Respon',
+                'rules' => 'required|min_length[10]',
+                'errors' => [
+                    'required' => 'Respon tidak boleh kosong',
+                    'min_length' => 'Respon minimal 10 karakter'
+                ]
+            ]
+        ];
+    }
+
+    /**
+     * Save new message
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['nama', 'email', 'judul', 'pesan']);
+
+        $rules = $this->getMessageValidationRules();
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['nama', 'email', 'judul', 'pesan']);
+        }
+
+        $this->pesanModel->insert([
+            'nama' => $data['nama'],
+            'email' => $data['email'],
+            'judul' => $data['judul'],
+            'pesan' => $data['pesan'],
+            'tanggal' => date('Y-m-d'),
         ]);
 
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_nama' => $validation->getError('nama'),
-                'error_email' => $validation->getError('email'),
-                'error_pesan' => $validation->getError('pesan'),
-                'error_judul' => $validation->getError('judul'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $this->pesan->insert([
-                'nama' => $nama,
-                'email' => $email,
-                'judul' => $judul,
-                'pesan' => $pesan,
-                // date now
-                'tanggal' => date('Y-m-d'), // date now 
-            ]);
+        return $this->setSuccessMessage('Pesan Berhasil Terkirim', '/');
+    }
 
-            session()->setFlashdata('success', 'Pesan Berhasil Terkirim');
+    /**
+     * Display edit form
+     */
+    public function edit($id = null)
+    {
+        if (!$id) {
+            session()->setFlashdata('error', 'Data Tidak Ditemukan');
             return redirect()->back();
         }
+
+        // Update read status
+        $this->pesanModel->updateStatusBaca($id);
+
+        $data = ['pesan' => $this->pesanModel->find($id)];
+        return view('backend/pesan/edit', $data);
     }
 
+    /**
+     * Update message response
+     */
     public function update()
     {
+        $data = $this->getFormData(['idpesan', 'respon', 'status']);
+        $idPesan = $data['idpesan'];
 
-        $idPesan = $this->request->getVar('idpesan');
-        $respon = $this->request->getVar('respon');
-        $status = $this->request->getVar('status');
+        $rules = $this->getResponseValidationRules();
 
-        $rules = $this->validate([
-
-            'respon' => [
-                'label' => 'Nama Pesan',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_respon' => $validation->getError('respon'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $data = [
-                'respon' => $respon,
-                'status' => $status ? $status : 'UP',
-                'admin' => 'Admin',
-            ];
-
-            $this->pesan->update($idPesan, $data);
-
-            session()->setFlashdata('success', 'Pesan Berhasil Di Jawab');
-            return redirect()->to('/pesans');
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['respon']);
         }
+
+        $updateData = [
+            'respon' => $data['respon'],
+            'status' => $data['status'] ?: self::STATUS_UNPUBLISHED,
+            'admin' => 'Admin',
+        ];
+
+        $this->pesanModel->update($idPesan, $updateData);
+
+        return $this->setSuccessMessage('Pesan Berhasil Di Jawab', '/pesans');
     }
 
-
+    /**
+     * Delete message
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $keterangan = $this->pesan->find($id);
-
-            if ($keterangan) {
-                $this->pesan->delete($id);
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $pesan = $this->pesanModel->find($id);
+
+        if (!$pesan) {
+            return $this->jsonError('Data pesan tidak ditemukan', 404);
+        }
+
+        $this->pesanModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }

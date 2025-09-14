@@ -2,465 +2,372 @@
 
 namespace App\Controllers\Backend;
 
-use DOMDocument;
 use App\Models\Album;
 use App\Models\AlbumList;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
 
+/**
+ * AlbumListController handles album list management functionality
+ * 
+ * This controller manages album lists including creation, editing, deletion, and display
+ * with multiple image handling and relationship management with albums.
+ */
 class AlbumListController extends BaseController
 {
-    protected $albumlist;
-    protected $album;
+    // Constants for better maintainability
+    private const MAX_FILE_SIZE = 1024; // 1MB
+    private const ALLOWED_IMAGE_TYPES = 'image/jpeg,image/png,image/jpg';
+    private const STATUS_PUBLISHED = 'PB';
+    private const STATUS_UNPUBLISHED = 'NP';
+    
+    // Model instances
+    private AlbumList $albumListModel;
+    private Album $albumModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->albumlist = new AlbumList();
-        $this->album = new Album();
+        $this->albumListModel = new AlbumList();
+        $this->albumModel = new Album();
     }
 
+    /**
+     * Display album list index page
+     */
     public function index()
     {
-        $data['title'] = 'Album List';
+        $data = ['title' => 'Album List'];
         return view('backend/albumlist/index', $data);
     }
 
+    /**
+     * Display album list creation form
+     */
     public function create()
     {
-        $data['album'] = $this->album->orderBy('idalbum', 'desc')->findAll();
-
-        // $data['album'] = $this->album->where('status', 'PB')->findAll();
+        $data = [
+            'album' => $this->albumModel->orderBy('idalbum', 'desc')->findAll()
+        ];
         return view('backend/albumlist/create', $data);
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->albumlist->getAlbumList();
-            return DataTable::of($builder)
-                ->edit('status', function ($row) {
-                    if ($row->status == 'PB') {
-                        return '<span class="badge badge-success">Publish</span>';
-                    } else {
-                        return '<span class="badge badge-danger">Belum Publish</span>';
-                    }
-                })
-                ->edit('tanggal', function ($row) {
-                    return date('d M Y', strtotime($row->tanggal));
-                })
-
-                ->edit('nama', function ($row) {
-                    if ($row->nama) {
-                        return '<span class="badge badge-info" style="font-size: 14px;">' . esc($row->nama) . '</span>';
-                    } else {
-                        return '<span class="badge badge-warning" style="font-size: 14px;">Administrator</span>';
-                    }
-                })
-
-                // ->edit('gambar', function ($row) {
-                //     if ($row->gambar !== null) {
-                //         $gambarArray = explode(',', $row->gambar);
-                //         $imageUrl = base_url('albumlist/' . $gambarArray[0]);
-                //     } else {
-                //         $imageUrl = base_url('albumlist/noimage.png');
-                //     }
-
-                //     return '<a href="' . $imageUrl . '" target="_blank"><img src="' . $imageUrl . '" width="130" height="80" class="image-preview"></a>';
-                // })
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex" role="group">
-                <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $row->idalbumlist . '\',\'' . $row->judul . '\')">
-                    <i class="feather icon-trash-2"></i>
-                </button>
-                <button type="button" class="btn btn-round btn-primary mx-1" title="Edit Data" onclick="edit(\'' . $row->idalbumlist . '\')">
-                    <i class="feather icon-edit"></i>
-                </button>
-                <button type="button" class="btn btn-round btn-info mx-1" title="Detail Data" onclick="detail(\'' . $row->idalbumlist . '\')">
-                    <i class="feather icon-info"></i>
-                </button>
-            </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->albumListModel->getAlbumList();
+
+        return DataTable::of($builder)
+            ->edit('status', function ($row) {
+                return $this->formatStatusBadge($row->status);
+            })
+            ->edit('tanggal', function ($row) {
+                return date('d M Y', strtotime($row->tanggal));
+            })
+            ->edit('nama', function ($row) {
+                return $this->formatNameBadge($row->nama);
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idalbumlist, $row->judul);
+            }, 'last')
+            ->toJson();
     }
 
-    public function save()
+    /**
+     * Format status badge
+     */
+    private function formatStatusBadge(string $status): string
     {
-        $idAlbum = $this->request->getVar('album_id');
-        $keterangan = $this->request->getVar('keterangan');
+        if ($status === self::STATUS_PUBLISHED) {
+            return '<span class="badge badge-success">Publish</span>';
+        }
+        
+        return '<span class="badge badge-danger">Belum Publish</span>';
+    }
 
-        $rules = $this->validate([
+    /**
+     * Format name badge
+     */
+    private function formatNameBadge(?string $nama): string
+    {
+        if ($nama) {
+            return '<span class="badge badge-info" style="font-size: 14px;">' . esc($nama) . '</span>';
+        }
+        
+        return '<span class="badge badge-warning" style="font-size: 14px;">Administrator</span>';
+    }
+
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $judul): string
+    {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($judul) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary mx-1" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-info mx-1" title="Detail Data" onclick="detail(\'' . $id . '\')">
+                <i class="feather icon-info"></i>
+            </button>
+        </div>';
+    }
+
+    /**
+     * Get album list validation rules
+     */
+    private function getAlbumListValidationRules(bool $requireImage = false): array
+    {
+        $rules = [
             'album_id' => [
                 'label' => 'Nama Album',
-                'rules' => 'required',
+                'rules' => 'required|integer|greater_than[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Nama album harus dipilih',
+                    'integer' => 'Album harus berupa angka',
+                    'greater_than' => 'Album harus dipilih'
                 ]
             ],
             'keterangan' => [
                 'label' => 'Keterangan Albumlist',
-                'rules' => 'required',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'gambar' => [
-                'label' => 'Gambar Albumlist',
-                'rules' => 'uploaded[gambar]|max_size[gambar,1024]|mime_in[gambar,image/jpeg,image/png,image/jpg]',
-                'errors' => [
-                    'uploaded' => '{field} tidak boleh kosong',
-                    'max_size' => 'Ukuran {field} maksimum 1MB',
-                    'mime_in' => 'Format {field} harus JPEG, PNG, atau JPG'
-                ]
-            ]
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_album_id' => $validation->getError('album_id'),
-                'error_keterangan' => $validation->getError('keterangan'),
-                'error_gambar' => $validation->getError('gambar'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $files = $this->request->getFiles('gambar');
-
-            foreach ($files['gambar'] as $file) {
-                // Pastikan file yang diunggah adalah file gambar
-                if ($file->isValid() && in_array($file->getClientMimeType(), ['image/jpeg', 'image/png', 'image/jpg'])) {
-                    // Generate nama unik untuk file
-                    $namaFoto = "Albumlist_" . $file->getRandomName();
-                    // Pindahkan file foto ke folder tujuan (public/albumlist)
-                    $file->move(FCPATH . 'albumlist', $namaFoto);
-
-                    $this->albumlist->insert([
-                        'album_id' => $idAlbum,
-                        'keterangan' => $keterangan,
-                        'gambar' => $namaFoto,
-                        'thumbnail' => $namaFoto,
-                        'created_at' => date('Y-m-d H:i:s'),
-                    ]);
-                } else {
-                    // File tidak valid, lakukan penanganan kesalahan di sini
-                    session()->setFlashdata('error_gambar', 'File yang diunggah tidak valid');
-                    return redirect()->back()->withInput();
-                }
-            }
-
-            session()->setFlashdata('success', 'Data Album List Berhasil Ditambahkan');
-            return redirect()->to('/albumlists');
-        }
-    }
-
-    public function edit($id = null)
-    {
-        $data['album'] = $this->album->orderBy('idalbum', 'desc')->findAll();
-        // $data['album'] = $this->album->where('status', 'PB')->findAll();
-
-        $data['albumlists'] = $this->albumlist->find($id);
-        return view('backend/albumlist/edit', $data);
-    }
-
-    public function detail($id = null)
-    {
-        $data['albumlists'] = $this->albumlist->find($id);
-        $data['title'] = 'Detail Album List';
-        $data['foto'] = $this->albumlist->where('album_id', $data['albumlists']['album_id'])->findAll();
-        // dd($data['foto']);
-
-
-        return view('backend/albumlist/detail', $data);
-    }
-
-    public function update()
-    {
-        $idAlbumlist = $this->request->getVar('idalbumlist');
-        $album_id = $this->request->getVar('album_id');
-        $keterangan = $this->request->getVar('keterangan');
-        $files = $this->request->getFiles();
-
-        $rules = [
-            'album_id' => [
-                'label' => 'Judul Album',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'keterangan' => [
-                'label' => 'Keterangan Album List',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Keterangan albumlist harus diisi',
+                    'min_length' => 'Keterangan minimal 10 karakter'
                 ]
             ]
         ];
 
-        if (!empty($files['gambar'])) {
-            $rules['gambar'] = 'uploaded[gambar]|mime_in[gambar,image/jpeg,image/png,image/jpg]|max_size[gambar,1024]';
+        if ($requireImage) {
+            $rules['gambar'] = [
+                'label' => 'Gambar Albumlist',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'uploaded' => 'Gambar albumlist harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG, atau JPG'
+                ]
+            ];
+        } else {
+            $rules['gambar'] = [
+                'label' => 'Gambar Albumlist',
+                'rules' => 'max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG, atau JPG'
+                ]
+            ];
         }
 
-        $validation = \Config\Services::validation();
-        $isValid = $validation->withRequest($this->request)->setRules($rules)->run();
+        return $rules;
+    }
 
-        if (!$isValid) {
-            session()->setFlashData([
-                'error_album_id' => $validation->getError('album_id'),
-                'error_keterangan' => $validation->getError('keterangan'),
-                'error_gambar' => $validation->getError('gambar'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $albumlist = $this->albumlist->find($idAlbumlist);
-            $oldGambar = explode(',', $albumlist['gambar']);
+    /**
+     * Process multiple image uploads
+     */
+    private function processMultipleImageUploads(): array
+    {
+        $files = $this->request->getFiles('gambar');
+        $uploadedFiles = [];
 
-            if (!empty($files['gambar'])) {
-                foreach ($oldGambar as $oldFile) {
-                    $oldFotoPath = FCPATH . 'albumlist/' . $oldFile;
-                    if (file_exists($oldFotoPath) && !is_dir($oldFotoPath)) { // Pastikan bukan direktori
-                        unlink($oldFotoPath);
-                    }
+        if (isset($files['gambar']) && is_array($files['gambar'])) {
+            foreach ($files['gambar'] as $file) {
+                if ($file->isValid() && in_array($file->getClientMimeType(), ['image/jpeg', 'image/png', 'image/jpg'])) {
+                    $namaFoto = "Albumlist_" . $file->getRandomName();
+                    $file->move(FCPATH . 'albumlist', $namaFoto);
+                    
+                    // Optimize image
+                    optimizeImageForWeb('albumlist/' . $namaFoto, [
+                        'width' => 800,
+                        'height' => 600,
+                        'quality' => 85
+                    ]);
+                    
+                    $uploadedFiles[] = $namaFoto;
                 }
-
-                $newGambarNames = [];
-                foreach ($files['gambar'] as $file) {
-                    if ($file->isValid() && !$file->hasMoved()) {
-                        $newFotoName = "Albumlist_" . $file->getRandomName();
-                        $file->move(FCPATH . 'albumlist', $newFotoName);
-                        $newGambarNames[] = $newFotoName;
-                    }
-                }
-                $newGambar = implode(',', $newGambarNames);
-
-                $this->albumlist->update($idAlbumlist, [
-                    'album_id' => $album_id,
-                    'keterangan' => $keterangan,
-                    'gambar' => $newGambar,
-                    'thumbnail' => $newGambar,
-                ]);
-            } else {
-                $this->albumlist->update($idAlbumlist, [
-                    'album_id' => $album_id,
-                    'keterangan' => $keterangan,
-                ]);
             }
+        }
 
-            session()->setFlashdata('success', 'Data Albumlist Berhasil Di Update');
-            return redirect()->to('/albumlists');
+        return $uploadedFiles;
+    }
+
+    /**
+     * Delete old images
+     */
+    private function deleteOldImages(string $imageString): void
+    {
+        if ($imageString) {
+            $imageArray = explode(',', $imageString);
+            foreach ($imageArray as $image) {
+                $imagePath = FCPATH . 'albumlist/' . trim($image);
+                if (file_exists($imagePath) && !is_dir($imagePath)) {
+                    $this->deleteFile('albumlist/' . trim($image));
+                }
+            }
         }
     }
 
+    /**
+     * Save new album list
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['album_id', 'keterangan']);
 
-    // public function update()
-    // {
-    //     $idAlbumlist = $this->request->getVar('idalbumlist');
-    //     $album_id = $this->request->getVar('album_id');
-    //     $keterangan = $this->request->getVar('keterangan');
-    //     $files = $this->request->getFiles();
+        $rules = $this->getAlbumListValidationRules(true);
 
-    //     $rules = [
-    //         'album_id' => [
-    //             'label' => 'Judul Album',
-    //             'rules' => 'required',
-    //             'errors' => [
-    //                 'required' => '{field} tidak boleh kosong',
-    //             ]
-    //         ],
-    //         'keterangan' => [
-    //             'label' => 'Keterangan Album List',
-    //             'rules' => 'required',
-    //             'errors' => [
-    //                 'required' => '{field} tidak boleh kosong',
-    //             ]
-    //         ]
-    //     ];
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['album_id', 'keterangan', 'gambar']);
+        }
 
-    //     if (!empty($files['gambar'])) {
-    //         $rules['gambar'] = 'uploaded[gambar]|mime_in[gambar,image/jpeg,image/png,image/jpg]|max_size[gambar,1024]';
-    //     }
+        $uploadedFiles = $this->processMultipleImageUploads();
+        if (empty($uploadedFiles)) {
+            session()->setFlashdata('error_gambar', 'Gambar albumlist harus diisi');
+            return redirect()->back()->withInput();
+        }
 
-    //     $validation = \Config\Services::validation();
-    //     $isValid = $validation->withRequest($this->request)->setRules($rules)->run();
+        // Insert each image as separate record
+        foreach ($uploadedFiles as $fileName) {
+            $this->albumListModel->insert([
+                'album_id' => $data['album_id'],
+                'keterangan' => $data['keterangan'],
+                'gambar' => $fileName,
+                'thumbnail' => $fileName,
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
 
-    //     if (!$isValid) {
-    //         session()->setFlashData([
-    //             'error_album_id' => $validation->getError('album_id'),
-    //             'error_keterangan' => $validation->getError('keterangan'),
-    //             'error_gambar' => $validation->getError('gambar'),
-    //         ]);
-    //         return redirect()->back()->withInput();
-    //     } else {
-    //         $albumlist = $this->albumlist->find($idAlbumlist);
-    //         $oldGambar = explode(',', $albumlist['gambar']);
+        return $this->setSuccessMessage('Data Album List Berhasil Ditambahkan', '/albumlists');
+    }
 
-    //         if (!empty($files['gambar'])) {
-    //             foreach ($oldGambar as $oldFile) {
-    //                 $oldFotoPath = FCPATH . 'albumlist/' . $oldFile;
-    //                 if (file_exists($oldFotoPath)) {
-    //                     unlink($oldFotoPath);
-    //                 }
-    //             }
+    /**
+     * Display edit form
+     */
+    public function edit($id = null)
+    {
+        $data = [
+            'album' => $this->albumModel->orderBy('idalbum', 'desc')->findAll(),
+            'albumlists' => $this->albumListModel->find($id)
+        ];
+        return view('backend/albumlist/edit', $data);
+    }
 
-    //             $newGambarNames = [];
-    //             foreach ($files['gambar'] as $file) {
-    //                 if ($file->isValid() && !$file->hasMoved()) {
-    //                     $newFotoName = "Albumlist_" . $file->getRandomName();
-    //                     $file->move(FCPATH . 'albumlist', $newFotoName);
-    //                     $newGambarNames[] = $newFotoName;
-    //                 }
-    //             }
-    //             $newGambar = implode(',', $newGambarNames);
+    /**
+     * Display detail page
+     */
+    public function detail($id = null)
+    {
+        $albumList = $this->albumListModel->find($id);
+        $data = [
+            'albumlists' => $albumList,
+            'title' => 'Detail Album List',
+            'foto' => $this->albumListModel->where('album_id', $albumList['album_id'])->findAll()
+        ];
 
-    //             $this->albumlist->update($idAlbumlist, [
-    //                 'album_id' => $album_id,
-    //                 'keterangan' => $keterangan,
-    //                 'gambar' => $newGambar,
-    //                 'thumbnail' => $newGambar,
-    //             ]);
-    //         } else {
-    //             $this->albumlist->update($idAlbumlist, [
-    //                 'album_id' => $album_id,
-    //                 'keterangan' => $keterangan,
-    //             ]);
-    //         }
+        return view('backend/albumlist/detail', $data);
+    }
 
-    //         session()->setFlashdata('success', 'Data Albumlist Berhasil Di Update');
-    //         return redirect()->to('/albumlists');
-    //     }
-    // }
+    /**
+     * Update existing album list
+     */
+    public function update()
+    {
+        $data = $this->getFormData(['idalbumlist', 'album_id', 'keterangan']);
+        $idAlbumlist = $data['idalbumlist'];
 
+        $files = $this->request->getFiles();
+        $hasNewImages = !empty($files['gambar']);
+        
+        $rules = $this->getAlbumListValidationRules(false);
 
-    // public function update()
-    // {
-    //     $idAlbumlist = $this->request->getVar('idalbumlist');
-    //     $album_id = $this->request->getVar('album_id');
-    //     $keterangan = $this->request->getVar('keterangan');
-    //     $files = $this->request->getFiles();
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['album_id', 'keterangan', 'gambar']);
+        }
 
-    //     $rules = [
-    //         'album_id' => [
-    //             'label' => 'Judul Album',
-    //             'rules' => 'required',
-    //             'errors' => [
-    //                 'required' => '{field} tidak boleh kosong',
-    //             ]
-    //         ],
-    //         'keterangan' => [
-    //             'label' => 'Keterangan Album List',
-    //             'rules' => 'required',
-    //             'errors' => [
-    //                 'required' => '{field} tidak boleh kosong',
-    //             ]
-    //         ]
-    //     ];
+        $updateData = [
+            'album_id' => $data['album_id'],
+            'keterangan' => $data['keterangan'],
+        ];
 
-    //     if ($files['gambar']) {
-    //         $rules['gambar'] = 'uploaded[gambar]|mime_in[gambar,image/jpeg,image/png,image/jpg]|max_size[gambar,1024]';
-    //     }
+        // Handle image update
+        if ($hasNewImages) {
+            $albumList = $this->albumListModel->find($idAlbumlist);
+            if ($albumList && $albumList['gambar']) {
+                $this->deleteOldImages($albumList['gambar']);
+            }
 
-    //     $validation = \Config\Services::validation();
-    //     $isValid = $validation->withRequest($this->request)->setRules($rules)->run();
+            $uploadedFiles = $this->processMultipleImageUploads();
+            if (!empty($uploadedFiles)) {
+                $newGambar = implode(',', $uploadedFiles);
+                $updateData['gambar'] = $newGambar;
+                $updateData['thumbnail'] = $newGambar;
+            }
+        }
 
-    //     if (!$isValid) {
-    //         $validation = \Config\Services::validation();
-    //         session()->setFlashData([
-    //             'error_album_id' => $validation->getError('album_id'),
-    //             'error_keterangan' => $validation->getError('keterangan'),
-    //             'error_gambar' => $validation->getError('gambar'),
-    //         ]);
-    //         return redirect()->back()->withInput();
-    //     } else {
-    //         $albumlist = $this->albumlist->find($idAlbumlist);
-    //         $oldGambar = explode(',', $albumlist['gambar']);
+        $this->albumListModel->update($idAlbumlist, $updateData);
 
-    //         if ($files['gambar']) {
-    //             foreach ($oldGambar as $oldFile) {
-    //                 $oldFotoPath = FCPATH . 'albumlist/' . $oldFile;
-    //                 if (file_exists($oldFotoPath)) {
-    //                     unlink($oldFotoPath);
-    //                 }
-    //             }
+        return $this->setSuccessMessage('Data Albumlist Berhasil Di Update', '/albumlists');
+    }
 
-    //             $newGambarNames = [];
-    //             foreach ($files['gambar'] as $file) {
-    //                 if ($file->isValid() && !$file->hasMoved()) {
-    //                     $newFotoName = "Albumlist_" . $file->getRandomName();
-    //                     $file->move(FCPATH . 'albumlist', $newFotoName);
-    //                     $newGambarNames[] = $newFotoName;
-    //                 }
-    //             }
-    //             $newGambar = implode(',', $newGambarNames);
-
-    //             $this->albumlist->update($idAlbumlist, [
-    //                 'album_id' => $album_id,
-    //                 'keterangan' => $keterangan,
-    //                 'gambar' => $newGambar,
-    //                 'thumbnail' => $newGambar,
-    //             ]);
-    //         } else {
-    //             $this->albumlist->update($idAlbumlist, [
-    //                 'album_id' => $album_id,
-    //                 'keterangan' => $keterangan,
-    //             ]);
-    //         }
-
-    //         session()->setFlashdata('success', 'Data Albumlist Berhasil Di Update');
-    //         return redirect()->to('/albumlists');
-    //     }
-    // }
-
+    /**
+     * Delete album list and all related images
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            // Temukan data yang akan dihapus berdasarkan ID
-            $cekReferensi = $this->albumlist->find($id);
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
+        }
 
-            if ($cekReferensi) {
-                $album_id = $cekReferensi['album_id'];
+        $albumList = $this->albumListModel->find($id);
 
-                // Temukan semua data dengan album_id yang sama
-                $referensiList = $this->albumlist->where('album_id', $album_id)->findAll();
+        if (!$albumList) {
+            return $this->jsonError('Data tidak ditemukan', 404);
+        }
 
-                // Hapus file gambar terkait
-                foreach ($referensiList as $referensi) {
-                    if ($referensi['gambar'] !== null) {
-                        $gambarArray = explode(',', $referensi['gambar']);
-                        foreach ($gambarArray as $gambar) {
-                            $fotoPath = FCPATH . 'albumlist/' . $gambar;
-                            if (file_exists($fotoPath)) {
-                                unlink($fotoPath);
-                            }
-                        }
-                    }
-                }
+        $albumId = $albumList['album_id'];
 
-                // Hapus data dari database
-                $this->albumlist->where('album_id', $album_id)->delete();
+        // Find all related album lists
+        $relatedLists = $this->albumListModel->where('album_id', $albumId)->findAll();
 
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            } else {
-                $json = [
-                    'error' => 'Data tidak ditemukan'
-                ];
-                echo json_encode($json);
+        // Delete all related images
+        foreach ($relatedLists as $relatedList) {
+            if ($relatedList['gambar']) {
+                $this->deleteOldImages($relatedList['gambar']);
             }
         }
+
+        // Delete all related records
+        $this->albumListModel->where('album_id', $albumId)->delete();
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 
-
+    /**
+     * Upload single image via AJAX
+     */
     public function uploadImage()
     {
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
+        }
+
         $validation = \Config\Services::validation();
         $validation->setRules([
             'gambar' => [
-                'rules' => 'uploaded[gambar]|max_size[gambar,1024]|is_image[gambar]|mime_in[gambar,image/jpg,image/jpeg,image/png]',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|is_image[gambar]|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
                 'errors' => [
                     'uploaded' => 'Tidak ada file yang diupload',
-                    'max_size' => 'Ukuran file maksimal adalah 1MB',
+                    'max_size' => 'Ukuran file maksimal adalah ' . self::MAX_FILE_SIZE . 'KB',
                     'is_image' => 'File yang diupload bukan gambar',
                     'mime_in' => 'Format gambar harus JPG, JPEG, atau PNG',
                 ],
@@ -468,112 +375,105 @@ class AlbumListController extends BaseController
         ]);
 
         if (!$this->validate($validation->getRules())) {
-            return $this->response->setJSON(['success' => false, 'error' => $validation->getError('gambar')]);
+            return $this->jsonError($validation->getError('gambar'));
         }
 
-        $id = $this->request->getPost('id'); // Mengambil ID dari request jika diperlukan
-        $item = $this->albumlist->find($id);
+        $id = $this->request->getPost('id');
+        $item = $this->albumListModel->find($id);
 
-        // Cek jika ada gambar lama dan hapus
+        // Delete old image if exists
         if ($item && !empty($item['gambar'])) {
-            $oldImagePath = FCPATH . 'albumlist/' . $item['gambar'];
-            if (file_exists($oldImagePath)) {
-                unlink($oldImagePath); // Hapus gambar lama
-            }
+            $this->deleteOldImages($item['gambar']);
         }
 
         $file = $this->request->getFile('gambar');
         $newName = "Albumlist_" . $file->getRandomName();
         $file->move(FCPATH . 'albumlist', $newName);
+        
+        // Optimize image
+        optimizeImageForWeb('albumlist/' . $newName, [
+            'width' => 800,
+            'height' => 600,
+            'quality' => 85
+        ]);
+
         $filePath = base_url('albumlist/' . $newName);
 
-        // Simpan nama file baru ke database
-        $this->albumlist->update($id, ['gambar' => $newName, 'thumbnail' => $newName]);
+        // Update database
+        $this->albumListModel->update($id, [
+            'gambar' => $newName,
+            'thumbnail' => $newName
+        ]);
 
-        return $this->response->setJSON(['success' => true, 'filePath' => $filePath]);
+        return $this->jsonSuccess('Image uploaded successfully', ['filePath' => $filePath]);
     }
 
-
+    /**
+     * Add images to existing album
+     */
     public function tambahGambar()
     {
-        $idAlbum = $this->request->getVar('album_id');
+        $data = $this->getFormData(['album_id']);
 
-        $rules = $this->validate([
-
+        $rules = [
             'gambar' => [
                 'label' => 'Gambar Albumlist',
-                'rules' => 'uploaded[gambar]|max_size[gambar,1024]|mime_in[gambar,image/jpeg,image/png,image/jpg]',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
                 'errors' => [
-                    'uploaded' => '{field} tidak boleh kosong',
-                    'max_size' => 'Ukuran {field} maksimum 1MB',
-                    'mime_in' => 'Format {field} harus JPEG, PNG, atau JPG'
+                    'uploaded' => 'Gambar albumlist harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG, atau JPG'
                 ]
             ]
-        ]);
+        ];
 
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_gambar' => $validation->getError('gambar'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $files = $this->request->getFiles('gambar');
-
-            foreach ($files['gambar'] as $file) {
-                // Pastikan file yang diunggah adalah file gambar
-                if ($file->isValid() && in_array($file->getClientMimeType(), ['image/jpeg', 'image/png', 'image/jpg'])) {
-                    // Generate nama unik untuk file
-                    $namaFoto = "Albumlist_" . $file->getRandomName();
-                    // Pindahkan file foto ke folder tujuan (public/albumlist)
-                    $file->move(FCPATH . 'albumlist', $namaFoto);
-
-                    $this->albumlist->insert([
-                        'album_id' => $idAlbum,
-                        'gambar' => $namaFoto,
-                        'thumbnail' => $namaFoto,
-                        'created_at' => date('Y-m-d H:i:s'),
-                    ]);
-                } else {
-                    // File tidak valid, lakukan penanganan kesalahan di sini
-                    session()->setFlashdata('error_gambar', 'File yang diunggah tidak valid');
-                    return redirect()->back()->withInput();
-                }
-            }
-
-            session()->setFlashdata('success', 'Data Album List Berhasil Ditambahkan');
-            return redirect()->back();
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['gambar']);
         }
+
+        $uploadedFiles = $this->processMultipleImageUploads();
+        if (empty($uploadedFiles)) {
+            session()->setFlashdata('error_gambar', 'File yang diunggah tidak valid');
+            return redirect()->back()->withInput();
+        }
+
+        // Insert each image as separate record
+        foreach ($uploadedFiles as $fileName) {
+            $this->albumListModel->insert([
+                'album_id' => $data['album_id'],
+                'gambar' => $fileName,
+                'thumbnail' => $fileName,
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
+
+        return $this->setSuccessMessage('Data Album List Berhasil Ditambahkan', '/albumlists');
     }
 
+    /**
+     * Delete single image via AJAX
+     */
     public function hapusGambar()
     {
-
-        if ($this->request->isAJAX()) {
-            $id = $this->request->getPost('id');
-
-            $data = $this->albumlist->find($id);
-
-            if (!$data) {
-                return $this->response->setJSON(['status' => 'error', 'message' => 'Data tidak ditemukan']);
-            }
-
-            // Hapus gambar dari direktori
-            $filePath = FCPATH . 'albumlist/' . $data['gambar'];
-
-            if (file_exists($filePath)) {
-                unlink($filePath); // Hapus file gambar
-            }
-
-            // Hapus data dari database
-            $this->albumlist->delete($id);
-            return $this->response->setJSON(['status' => 'success', 'message' => 'Gambar berhasil dihapus']);
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Akses tidak valid', 403);
         }
 
-        // Jika bukan request AJAX
-        return $this->response->setJSON([
-            'status' => 'error',
-            'message' => 'Akses tidak valid'
-        ]);
+        $id = $this->request->getPost('id');
+        $data = $this->albumListModel->find($id);
+
+        if (!$data) {
+            return $this->jsonError('Data tidak ditemukan', 404);
+        }
+
+        // Delete image file
+        if ($data['gambar']) {
+            $this->deleteOldImages($data['gambar']);
+        }
+
+        // Delete from database
+        $this->albumListModel->delete($id);
+
+        return $this->jsonSuccess('Gambar berhasil dihapus');
     }
 }

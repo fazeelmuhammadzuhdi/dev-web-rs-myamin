@@ -4,302 +4,319 @@ namespace App\Controllers\PPID;
 
 use App\Controllers\BaseController;
 use App\Models\KeberatanInformasiPPID;
-use Config\Services;
 use Hermawan\DataTables\DataTable;
 
+/**
+ * KeberatanInformasiController handles PPID information objection management
+ * 
+ * This controller manages PPID information objections including creation,
+ * editing, deletion, and reporting with WhatsApp notification integration.
+ */
 class KeberatanInformasiController extends BaseController
 {
-    protected $keberataninformasippid;
+    // Model instance
+    private KeberatanInformasiPPID $keberatanInformasiModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->keberataninformasippid = new KeberatanInformasiPPID();
+        $this->keberatanInformasiModel = new KeberatanInformasiPPID();
     }
 
+    /**
+     * Display objection index page
+     */
     public function index()
     {
-        $data['title'] = 'Formulir Keberatan Atas Permohonan Informasi PPID';
+        $data = ['title' => 'Formulir Keberatan Atas Permohonan Informasi PPID'];
         return view('backend/formppid/keberatan_informasi', $data);
     }
 
+    /**
+     * Display objection creation form
+     */
     public function create()
     {
         return view('backend/formppid/keberatan_informasi_create');
     }
 
-
-
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->keberataninformasippid->select('idkeberataninformasippid,nama_pemohon_informasi,pekerjaan,nomor_telepon_pemohon,tanggal,informasi_dibutuhkan_pemohon,alasan_pengajuan,keterangan')->orderBy('tanggal', 'desc')->orderBy('idkeberataninformasippid', 'DESC');
-
-            return DataTable::of($builder)
-
-                ->edit('tanggal', function ($row) {
-                    return date('d M Y', strtotime($row->tanggal)); // Format tanggal sesuai kebutuhan
-                })
-
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $row->idkeberataninformasippid . '\',\'' . $row->nama_pemohon_informasi . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-
-                    <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $row->idkeberataninformasippid . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->keberatanInformasiModel->select('idkeberataninformasippid,nama_pemohon_informasi,pekerjaan,nomor_telepon_pemohon,tanggal,informasi_dibutuhkan_pemohon,alasan_pengajuan,keterangan')
+            ->orderBy('tanggal', 'desc')
+            ->orderBy('idkeberataninformasippid', 'DESC');
+
+        return DataTable::of($builder)
+            ->edit('tanggal', function ($row) {
+                return date('d M Y', strtotime($row->tanggal));
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idkeberataninformasippid, $row->nama_pemohon_informasi);
+            }, 'last')
+            ->toJson();
     }
 
-    public function formulirKeberatanInformasiPPIDSave()
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $nama): string
     {
-        $userId = session()->get('idUser');
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($nama) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
 
-        $nama_pemohon_informasi = $this->request->getVar('nama_pemohon_informasi');
-        $alamat_pemohon = $this->request->getVar('alamat_pemohon');
-        $nomor_telepon_pemohon = $this->request->getVar('nomor_telepon_pemohon');
-        $informasi_dibutuhkan_pemohon = $this->request->getVar('informasi_dibutuhkan_pemohon');
-        $alasan_pengajuan = $this->request->getVar('alasan_pengajuan');
-        $pekerjaan = $this->request->getVar('pekerjaan');
-        $keterangan = $this->request->getVar('keterangan') ?? null;
-
-        // Validasi input
-        $rules = $this->validate([
+    /**
+     * Get objection validation rules
+     */
+    private function getObjectionValidationRules(): array
+    {
+        return [
             'nama_pemohon_informasi' => [
                 'label' => 'Nama Pemohon Informasi',
                 'rules' => 'required|alpha_space|max_length[50]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'alpha_space' => '{field} hanya boleh mengandung huruf dan spasi',
+                    'required' => 'Nama pemohon informasi harus diisi',
+                    'alpha_space' => 'Nama hanya boleh mengandung huruf dan spasi',
+                    'max_length' => 'Nama maksimal 50 karakter'
                 ]
             ],
             'alamat_pemohon' => [
                 'label' => 'Alamat Pemohon',
                 'rules' => 'required|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Alamat pemohon harus diisi',
+                    'max_length' => 'Alamat maksimal 100 karakter'
                 ]
             ],
             'pekerjaan' => [
                 'label' => 'Pekerjaan',
-                'rules' => 'required',
+                'rules' => 'required|max_length[50]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Pekerjaan harus diisi',
+                    'max_length' => 'Pekerjaan maksimal 50 karakter'
                 ]
             ],
             'nomor_telepon_pemohon' => [
                 'label' => 'Nomor Telepon Pemohon',
                 'rules' => 'required|numeric|min_length[10]|max_length[15]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'numeric' => '{field} harus berupa angka',
-                    'min_length' => '{field} minimal 10 digit',
-                    'max_length' => '{field} maksimal 15 digit',
+                    'required' => 'Nomor telepon pemohon harus diisi',
+                    'numeric' => 'Nomor telepon harus berupa angka',
+                    'min_length' => 'Nomor telepon minimal 10 digit',
+                    'max_length' => 'Nomor telepon maksimal 15 digit'
                 ]
             ],
             'informasi_dibutuhkan_pemohon' => [
                 'label' => 'Informasi Dibutuhkan Pemohon',
                 'rules' => 'required|max_length[255]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'max_length' => '{field} maksimal 255 karakter',
+                    'required' => 'Informasi dibutuhkan pemohon harus diisi',
+                    'max_length' => 'Informasi maksimal 255 karakter'
                 ]
             ],
             'alasan_pengajuan' => [
-                'label' => 'Alasan Permintaan Pemohon',
+                'label' => 'Alasan Pengajuan',
                 'rules' => 'required|max_length[255]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'max_length' => '{field} maksimal 255 karakter',
+                    'required' => 'Alasan pengajuan harus diisi',
+                    'max_length' => 'Alasan maksimal 255 karakter'
                 ]
-            ],
+            ]
+        ];
+    }
 
+    /**
+     * Send WhatsApp notification
+     */
+    private function sendWhatsAppNotification(array $data): bool
+    {
+        try {
+            $whatsappService = \Config\Services::whatsapp();
+            
+            $pesan = "*📄 Keberatan Atas Permohonan Informasi PPID*\n\n" .
+                "*👤 Nama:* " . $data['nama_pemohon_informasi'] . "\n" .
+                "*🏠 Alamat:* " . $data['alamat_pemohon'] . "\n" .
+                "*📞 Telepon:* " . $data['nomor_telepon_pemohon'] . "\n" .
+                "*💼 Pekerjaan:* " . $data['pekerjaan'] . "\n" .
+                "*📌 Informasi yang Dibutuhkan:*\n" . $data['informasi_dibutuhkan_pemohon'] . "\n" .
+                "*📝 Alasan Pengajuan:*\n" . $data['alasan_pengajuan'];
+
+            return $whatsappService->sendMessageToAdmin($pesan);
+        } catch (\Exception $e) {
+            log_message('error', 'WhatsApp notification failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Save objection form
+     */
+    public function formulirKeberatanInformasiPPIDSave()
+    {
+        $data = $this->getFormData([
+            'nama_pemohon_informasi', 'alamat_pemohon', 'nomor_telepon_pemohon',
+            'informasi_dibutuhkan_pemohon', 'alasan_pengajuan', 'pekerjaan', 'keterangan'
         ]);
 
-        // Kirim WhatsApp notifikasi ke admin
-        $whatsappService = Services::whatsapp();
+        $rules = $this->getObjectionValidationRules();
 
-        // Pesan yang akan dikirim ke admin
-        $pesan = "Formulir Keberatan Atas Permohonan Informasi PPID dari: $nama_pemohon_informasi\n" .
-            "Alamat: $alamat_pemohon\n" .
-            "Nomor Telepon: $nomor_telepon_pemohon\n" .
-            "Tujuan Penggunaan Informasi: $informasi_dibutuhkan_pemohon\n";
-        "Alasan Pengajuan: $alasan_pengajuan\n";
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'nama_pemohon_informasi', 'alamat_pemohon', 'nomor_telepon_pemohon',
+                'informasi_dibutuhkan_pemohon', 'alasan_pengajuan', 'pekerjaan'
+            ]);
+        }
 
-        // Mengirimkan pesan WhatsApp ke admin
-        $whatsappSent = $whatsappService->sendMessageToAdmin($pesan);
-
-        // Cek apakah pesan berhasil dikirim
+        // Send WhatsApp notification
+        $whatsappSent = $this->sendWhatsAppNotification($data);
         if (!$whatsappSent) {
             session()->setFlashData('error', 'Gagal mengirim pesan WhatsApp!');
             return redirect()->back()->withInput();
         }
 
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_nama_pemohon_informasi' => $validation->getError('nama_pemohon_informasi'),
-                'error_alamat_pemohon' => $validation->getError('alamat_pemohon'),
-                'error_nomor_telepon_pemohon' => $validation->getError('nomor_telepon_pemohon'),
-                'error_informasi_dibutuhkan_pemohon' => $validation->getError('informasi_dibutuhkan_pemohon'),
-                'error_alasan_pengajuan' => $validation->getError('alasan_pengajuan'),
-                'error_pekerjaan' => $validation->getError('pekerjaan'),
+        $this->keberatanInformasiModel->insert([
+            'nama_pemohon_informasi' => $data['nama_pemohon_informasi'],
+            'alamat_pemohon' => $data['alamat_pemohon'],
+            'nomor_telepon_pemohon' => $data['nomor_telepon_pemohon'],
+            'informasi_dibutuhkan_pemohon' => $data['informasi_dibutuhkan_pemohon'],
+            'alasan_pengajuan' => $data['alasan_pengajuan'],
+            'pekerjaan' => $data['pekerjaan'],
+            'tanggal' => date('Y-m-d H:i:s'),
+            'keterangan' => $data['keterangan'] ?? null
+        ]);
 
-            ]);
-            return redirect()->back()->withInput();
+        $userId = session()->get('idUser');
+        if ($userId) {
+            return $this->setSuccessMessage('Data berhasil disimpan!', '/keberataninformasi');
         } else {
-            // Menyimpan data ke database
-            $this->keberataninformasippid->insert([
-                'nama_pemohon_informasi' => $nama_pemohon_informasi,
-                'alamat_pemohon' => $alamat_pemohon,
-                'nomor_telepon_pemohon' => $nomor_telepon_pemohon,
-                'informasi_dibutuhkan_pemohon' => $informasi_dibutuhkan_pemohon,
-                'alasan_pengajuan' => $alasan_pengajuan,
-                'pekerjaan' => $pekerjaan,
-                'tanggal' => date('Y-m-d H:i:s'),
-                'keterangan' => $keterangan
-            ]);
-
-            if ($userId) {
-                session()->setFlashData('success', 'Data berhasil disimpan!');
-                return redirect()->to('/keberataninformasi');
-            } else {
-                session()->setFlashData('success', 'Data berhasil disimpan!');
-                return redirect()->back();
-            }
+            return $this->setSuccessMessage('Data berhasil disimpan!');
         }
     }
 
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['keberataninformasippid'] = $this->keberataninformasippid->find($id);
+        $data = ['keberataninformasippid' => $this->keberatanInformasiModel->find($id)];
         return view('backend/formppid/keberatan_informasi_edit', $data);
     }
 
+    /**
+     * Update objection form
+     */
     public function update()
     {
-
-        $idkeberataninformasippid = $this->request->getVar('idkeberataninformasippid');
-        $nama_pemohon_informasi = $this->request->getVar('nama_pemohon_informasi');
-        $alamat_pemohon = $this->request->getVar('alamat_pemohon');
-        $nomor_telepon_pemohon = $this->request->getVar('nomor_telepon_pemohon');
-        $informasi_dibutuhkan_pemohon = $this->request->getVar('informasi_dibutuhkan_pemohon');
-        $alasan_pengajuan = $this->request->getVar('alasan_pengajuan');
-        $pekerjaan = $this->request->getVar('pekerjaan');
-        $keterangan = $this->request->getVar('keterangan');
-
-        $rules = $this->validate([
-            'nama_pemohon_informasi' => [
-                'label' => 'Nama Pemohon Informasi',
-                'rules' => 'required|alpha_space|max_length[50]',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'alpha_space' => '{field} hanya boleh mengandung huruf dan spasi',
-                ]
-            ],
-            'alamat_pemohon' => [
-                'label' => 'Alamat Pemohon',
-                'rules' => 'required|max_length[100]',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'keterangan' => [
-                'label' => 'Keterangan',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'nomor_telepon_pemohon' => [
-                'label' => 'Nomor Telepon Pemohon',
-                'rules' => 'required|numeric|min_length[10]|max_length[15]',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'numeric' => '{field} harus berupa angka',
-                    'min_length' => '{field} minimal 10 digit',
-                    'max_length' => '{field} maksimal 15 digit',
-                ]
-            ],
-            'informasi_dibutuhkan_pemohon' => [
-                'label' => 'Informasi Dibutuhkan Pemohon',
-                'rules' => 'required|max_length[255]',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'max_length' => '{field} maksimal 255 karakter',
-                ]
-            ],
-            'alasan_pengajuan' => [
-                'label' => 'Alasan Permintaan Pemohon',
-                'rules' => 'required|max_length[255]',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                    'max_length' => '{field} maksimal 255 karakter',
-                ]
-            ],
-
+        $data = $this->getFormData([
+            'idkeberataninformasippid', 'nama_pemohon_informasi', 'alamat_pemohon',
+            'nomor_telepon_pemohon', 'informasi_dibutuhkan_pemohon', 'alasan_pengajuan',
+            'pekerjaan', 'keterangan'
         ]);
+        
+        $idkeberataninformasippid = $data['idkeberataninformasippid'];
 
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_keterangan' => $validation->getError('keterangan'),
-                'error_nama' => $validation->getError('nama'),
+        $rules = $this->getObjectionValidationRules();
+        
+        // Add keterangan validation for update
+        $rules['keterangan'] = [
+            'label' => 'Keterangan',
+            'rules' => 'required|max_length[255]',
+            'errors' => [
+                'required' => 'Keterangan harus diisi',
+                'max_length' => 'Keterangan maksimal 255 karakter'
+            ]
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'nama_pemohon_informasi', 'alamat_pemohon', 'nomor_telepon_pemohon',
+                'informasi_dibutuhkan_pemohon', 'alasan_pengajuan', 'pekerjaan', 'keterangan'
             ]);
-            return redirect()->back()->withInput();
-        } else {
-            $data = [
-                'nama_pemohon_informasi' => $nama_pemohon_informasi,
-                'alamat_pemohon' => $alamat_pemohon,
-                'nomor_telepon_pemohon' => $nomor_telepon_pemohon,
-                'informasi_dibutuhkan_pemohon' => $informasi_dibutuhkan_pemohon,
-                'alasan_pengajuan' => $alasan_pengajuan,
-                'pekerjaan' => $pekerjaan,
-                'keterangan' => $keterangan
-            ];
-
-            $this->keberataninformasippid->update($idkeberataninformasippid, $data);
-
-            session()->setFlashdata('success', 'Data Keberatan Informasi Berhasil Di Update');
-            return redirect()->to('/keberataninformasi');
         }
+
+        $updateData = [
+            'nama_pemohon_informasi' => $data['nama_pemohon_informasi'],
+            'alamat_pemohon' => $data['alamat_pemohon'],
+            'nomor_telepon_pemohon' => $data['nomor_telepon_pemohon'],
+            'informasi_dibutuhkan_pemohon' => $data['informasi_dibutuhkan_pemohon'],
+            'alasan_pengajuan' => $data['alasan_pengajuan'],
+            'pekerjaan' => $data['pekerjaan'],
+            'keterangan' => $data['keterangan']
+        ];
+
+        $this->keberatanInformasiModel->update($idkeberataninformasippid, $updateData);
+
+        return $this->setSuccessMessage('Data Keberatan Informasi Berhasil Di Update', '/keberataninformasi');
     }
 
+    /**
+     * Delete objection form
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $keterangan = $this->keberataninformasippid->find($id);
-
-            if ($keterangan) {
-                $this->keberataninformasippid->delete($id);
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $keberatan = $this->keberatanInformasiModel->find($id);
+
+        if (!$keberatan) {
+            return $this->jsonError('Data keberatan tidak ditemukan', 404);
+        }
+
+        $this->keberatanInformasiModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 
+    /**
+     * Generate objection report
+     */
     public function cetakLaporanKeberatanInformasiPPID()
     {
-        $data['keberataninformasi'] = $this->keberataninformasippid->findAll();
-        $data['title'] = 'Laporan Keberatan Informasi PPID';
+        $keberataninformasi = $this->keberatanInformasiModel->findAll();
 
-        $data['total'] = count($data['keberataninformasi']);
-
-        // Konversi gambar menjadi Base64
-        $logoPemrov = base64_encode(file_get_contents(FCPATH . 'assets/pemprov.jpg'));
-        $data['srcLogoPemrov'] = 'data:image/png;base64,' . $logoPemrov;
-
-        $logoRsud = base64_encode(file_get_contents(FCPATH . 'assets/logo.png'));
-        $data['srcLogoRsud'] = 'data:image/png;base64,' . $logoRsud;
-
+        $data = [
+            'keberataninformasi' => $keberataninformasi,
+            'title' => 'Laporan Keberatan Informasi PPID',
+            'total' => count($keberataninformasi),
+            'srcLogoPemrov' => $this->getBase64Image('assets/pemprov.jpg'),
+            'srcLogoRsud' => $this->getBase64Image('assets/logo.png')
+        ];
 
         return view('backend/formppid/laporan_keberatan_informasi', $data);
+    }
+
+    /**
+     * Convert image to base64
+     */
+    private function getBase64Image(string $imagePath): string
+    {
+        $fullPath = FCPATH . $imagePath;
+        
+        if (file_exists($fullPath)) {
+            $imageData = base64_encode(file_get_contents($fullPath));
+            $imageInfo = getimagesize($fullPath);
+            $mimeType = $imageInfo['mime'];
+            
+            return 'data:' . $mimeType . ';base64,' . $imageData;
+        }
+        
+        return '';
     }
 }

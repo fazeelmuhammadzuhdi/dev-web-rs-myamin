@@ -2,193 +2,205 @@
 
 namespace App\Controllers\Backend;
 
-use DOMDocument;
 use App\Models\Sejarah;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
 
+/**
+ * SejarahController handles hospital history management functionality
+ * 
+ * This controller manages hospital history timeline creation, editing, deletion, and display
+ * with proper validation and chronological organization.
+ */
 class SejarahController extends BaseController
 {
-    protected $sejarah;
+    // Model instance
+    private Sejarah $sejarahModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->sejarah = new Sejarah();
+        $this->sejarahModel = new Sejarah();
     }
 
+    /**
+     * Display history index page
+     */
     public function index()
     {
-        $data['title'] = 'Sejarah';
+        $data = ['title' => 'Sejarah'];
         return view('backend/sejarah/index', $data);
     }
 
+    /**
+     * Display history creation form
+     */
     public function create()
     {
         return view('backend/sejarah/create');
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->sejarah->select('idsejarah,tahun,keterangan')->orderBy('tahun', 'ASC');
-            return DataTable::of($builder)
-                ->edit('keterangan', function ($row) {
-                    if ($row->keterangan) {
-                        $doc = new DOMDocument();
-                        @$doc->loadHTML($row->keterangan);
-                        return $doc->textContent; // Menghapus tag HTML
-                    }
-                    return '-';
-                })
-
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" tahun="Hapus Data" onclick="hapus(\'' . $row->idsejarah . '\',\'' . $row->tahun . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" tahun="Edit Data" onclick="edit(\'' . $row->idsejarah . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->sejarahModel->select('idsejarah,tahun,keterangan,judul')->orderBy('tahun', 'ASC');
+        
+        return DataTable::of($builder)
+            ->edit('keterangan', function ($row) {
+                return $this->formatDescriptionColumn($row->keterangan);
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idsejarah, $row->tahun);
+            }, 'last')
+            ->toJson();
     }
 
-
-    public function save()
+    /**
+     * Format description column
+     */
+    private function formatDescriptionColumn(?string $keterangan): string
     {
-        $tahun = $this->request->getVar('tahun');
-        $keterangan = $this->request->getVar('keterangan');
-        $judul = $this->request->getVar('judul');
+        if ($keterangan) {
+            // Strip HTML tags and limit length
+            $text = strip_tags($keterangan);
+            return strlen($text) > 100 ? substr($text, 0, 100) . '...' : $text;
+        }
+        
+        return '-';
+    }
 
-        $rules = $this->validate([
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $tahun): string
+    {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($tahun) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
 
+    /**
+     * Get history validation rules
+     */
+    private function getHistoryValidationRules(): array
+    {
+        return [
             'tahun' => [
                 'label' => 'Tahun Sejarah',
-                'rules' => 'required',
+                'rules' => 'required|integer|greater_than[1900]|less_than_equal_to[' . date('Y') . ']',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tahun sejarah harus diisi',
+                    'integer' => 'Tahun harus berupa angka',
+                    'greater_than' => 'Tahun harus lebih dari 1900',
+                    'less_than_equal_to' => 'Tahun tidak boleh lebih dari tahun sekarang'
                 ]
             ],
             'judul' => [
                 'label' => 'Judul Sejarah',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Judul sejarah harus diisi',
+                    'min_length' => 'Judul minimal 3 karakter',
+                    'max_length' => 'Judul maksimal 100 karakter'
                 ]
             ],
             'keterangan' => [
                 'label' => 'Keterangan Sejarah',
-                'rules' => 'required',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Keterangan sejarah harus diisi',
+                    'min_length' => 'Keterangan minimal 10 karakter'
                 ]
-            ],
-
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_tahun' => $validation->getError('tahun'),
-                'error_keterangan' => $validation->getError('keterangan'),
-                'error_judul' => $validation->getError('judul'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $this->sejarah->insert([
-                'tahun' => $tahun,
-                'judul' => $judul,
-                'keterangan' => $keterangan,
-            ]);
-
-            session()->setFlashdata('success', 'Data Sejarah Berhasil Di Tambahkan');
-            return redirect()->to('/sejarahs');
-        }
+            ]
+        ];
     }
 
+    /**
+     * Save new history entry
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['tahun', 'judul', 'keterangan']);
+
+        $rules = $this->getHistoryValidationRules();
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['tahun', 'judul', 'keterangan']);
+        }
+
+        $this->sejarahModel->insert([
+            'tahun' => $data['tahun'],
+            'judul' => $data['judul'],
+            'keterangan' => $data['keterangan'],
+        ]);
+
+        return $this->setSuccessMessage('Data Sejarah Berhasil Ditambahkan', '/sejarahs');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['sejarahs'] = $this->sejarah->find($id);
+        $data = ['sejarahs' => $this->sejarahModel->find($id)];
         return view('backend/sejarah/edit', $data);
     }
 
+    /**
+     * Update existing history entry
+     */
     public function update()
     {
+        $data = $this->getFormData(['idsejarah', 'tahun', 'judul', 'keterangan']);
+        $idSejarah = $data['idsejarah'];
 
-        $idSejarah = $this->request->getVar('idsejarah');
-        $tahun = $this->request->getVar('tahun');
-        $keterangan = $this->request->getVar('keterangan');
-        $judul = $this->request->getVar('judul');
+        $rules = $this->getHistoryValidationRules();
 
-        $rules = [
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['tahun', 'judul', 'keterangan']);
+        }
 
-            'tahun' => [
-                'label' => 'Tahun Sejarah',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'judul' => [
-                'label' => 'Judul Sejarah',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'keterangan' => [
-                'label' => 'Keterangan Sejarah',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
+        $updateData = [
+            'tahun' => $data['tahun'],
+            'judul' => $data['judul'],
+            'keterangan' => $data['keterangan'],
         ];
 
-        $validation = \Config\Services::validation();
-        $isValid = $validation->withRequest($this->request)->setRules($rules)->run();
+        $this->sejarahModel->update($idSejarah, $updateData);
 
-        if (!$isValid) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_tahun' => $validation->getError('tahun'),
-                'error_keterangan' => $validation->getError('keterangan'),
-                'error_judul' => $validation->getError('judul'),
-            ]);
-
-            return redirect()->back()->withInput();
-        } else {
-
-            $this->sejarah->update($idSejarah, [
-                'tahun' => $tahun,
-                'keterangan' => $keterangan,
-                'judul' => $judul,
-            ]);
-
-            session()->setFlashdata('success', 'Data Sejarah Berhasil Di Update');
-            return redirect()->to('/sejarahs');
-        }
+        return $this->setSuccessMessage('Data Sejarah Berhasil Di Update', '/sejarahs');
     }
 
+    /**
+     * Delete history entry
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $sj = $this->sejarah->find($id);
-
-            if ($sj) {
-                $this->sejarah->delete($id);
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $sejarah = $this->sejarahModel->find($id);
+
+        if (!$sejarah) {
+            return $this->jsonError('Data sejarah tidak ditemukan', 404);
+        }
+
+        $this->sejarahModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }

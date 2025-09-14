@@ -6,367 +6,372 @@ use App\Models\Referensi;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
 
+/**
+ * ReferensiController handles reference management functionality
+ * 
+ * This controller manages reference materials including books, articles,
+ * and other resources with image handling and link management.
+ */
 class ReferensiController extends BaseController
 {
-    protected $referensi;
+    // Constants for better maintainability
+    private const MAX_FILE_SIZE = 1024; // 1MB
+    private const ALLOWED_IMAGE_TYPES = 'image/jpeg,image/png,image/jpg';
+    
+    // Model instance
+    private Referensi $referensiModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->referensi = new Referensi();
+        $this->referensiModel = new Referensi();
     }
 
+    /**
+     * Display reference index page
+     */
     public function index()
     {
-        $data['title'] = 'Referensi';
-
+        $data = ['title' => 'Referensi'];
         return view('backend/referensi/index', $data);
     }
 
+    /**
+     * Display reference creation form
+     */
     public function create()
     {
-
         return view('backend/referensi/create');
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-
-            $builder = $this->referensi->getDataReferensi();
-
-            return DataTable::of($builder)
-                ->edit('gambar', function ($row) {
-                    if ($row->gambar !== null) {
-                        $imageUrl = base_url('referensi/' . $row->gambar);
-                        return '<a href="' . $imageUrl . '" target="_blank"><img src="' . $imageUrl . '" width="100" height="100"></a>';
-                    } else {
-                        return '';
-                    }
-                })
-                ->edit('link', function ($row) {
-                    if ($row->link !== null) {
-                        return '<a href="' . $row->link . '" target="_blank">' . $row->link . '</a>';
-                    } else {
-                        return '';
-                    }
-                })
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" nama="Hapus Data" onclick="hapus(\'' . $row->idreferensi . '\',\'' . $row->judul . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" nama="Edit Data" onclick="edit(\'' . $row->idreferensi . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->referensiModel->getDataReferensi();
+        
+        return DataTable::of($builder)
+            ->edit('gambar', function ($row) {
+                return $this->formatImageColumn($row->gambar);
+            })
+            ->edit('link', function ($row) {
+                return $this->formatLinkColumn($row->link);
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idreferensi, $row->judul);
+            }, 'last')
+            ->toJson();
     }
 
-
-    public function save()
+    /**
+     * Format image column
+     */
+    private function formatImageColumn(?string $gambar): string
     {
-        $judul = $this->request->getVar('judul');
-        $pengarang = $this->request->getVar('pengarang');
-        $bahasa = $this->request->getVar('bahasa');
-        $kategori = $this->request->getVar('kategori');
-        $penerbit = $this->request->getVar('penerbit');
-        $tahun = $this->request->getVar('tahun');
-        $deskripsi = $this->request->getVar('deskripsi');
-        $link = $this->request->getVar('link');
-
-        $rules = $this->validate([
-            'judul' => [
-                'label' => 'Judul',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong'
-                ]
-            ],
-
-            'pengarang' => [
-                'label' => 'Nama Pengarang',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'bahasa' => [
-                'label' => 'Bahasa',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'kategori' => [
-                'label' => 'Kategori',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'penerbit' => [
-                'label' => 'Penerbit',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'tahun' => [
-                'label' => 'Tahun',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'deskripsi' => [
-                'label' => 'Deskripsi',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'link' => [
-                'label' => 'Link Referensi',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'gambar' => [
-                'label' => 'Gambar Referensi',
-                'rules' => 'uploaded[gambar]|max_size[gambar,1024]|mime_in[gambar,image/jpeg,image/png,image/jpg]',
-                'errors' => [
-                    'uploaded' => '{field} tidak boleh kosong',
-                    'max_size' => 'Ukuran {field} maksimum 1MB',
-                    'mime_in' => 'Format {field} harus JPEG ,PNG atau JPG'
-                ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_judul' => $validation->getError('judul'),
-                'error_pengarang' => $validation->getError('pengarang'),
-                'error_bahasa' => $validation->getError('bahasa'),
-                'error_kategori' => $validation->getError('kategori'),
-                'error_penerbit' => $validation->getError('penerbit'),
-                'error_tahun' => $validation->getError('tahun'),
-                'error_deskripsi' => $validation->getError('deskripsi'),
-                'error_link' => $validation->getError('link'),
-                'error_gambar' => $validation->getError('gambar'),
-
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $fileFoto = $this->request->getFile('gambar');
-
-            $namaFoto = "Referensi" . '_' . $fileFoto->getRandomName();
-            // Pindahkan file foto ke folder tujuan (public/banner)
-            $fileFoto->move(FCPATH . 'referensi', $namaFoto);
-
-            $this->referensi->insert([
-                'judul' => $judul,
-                'pengarang' => $pengarang,
-                'bahasa' => $bahasa,
-                'kategori' => $kategori,
-                'penerbit' => $penerbit,
-                'tahun' => $tahun,
-                'deskripsi' => $deskripsi,
-                'link' => $link,
-                'gambar' => $namaFoto,
-                'created_at' => date('Y-m-d H:i:s'),
-            ]);
-
-            session()->setFlashdata('success', 'Data Referensi Berhasil Di Tambahkan');
-            return redirect()->to('/referensis');
+        if ($gambar) {
+            $imageUrl = base_url('referensi/' . $gambar);
+            return '<a href="' . $imageUrl . '" target="_blank">
+                <img src="' . $imageUrl . '" width="100" height="100" alt="Reference Image">
+            </a>';
         }
+        
+        return '';
     }
 
-    public function edit($id = null)
+    /**
+     * Format link column
+     */
+    private function formatLinkColumn(?string $link): string
     {
-        $data['referensi'] = $this->referensi->find($id);
-        return view('backend/referensi/edit', $data);
+        if ($link) {
+            return '<a href="' . esc($link) . '" target="_blank" rel="noopener noreferrer">' . esc($link) . '</a>';
+        }
+        
+        return '';
     }
 
-    public function update()
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $judul): string
     {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($judul) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
 
-        $idReferensi = $this->request->getVar('idreferensi');
-        $judul = $this->request->getVar('judul');
-        $pengarang = $this->request->getVar('pengarang');
-        $bahasa = $this->request->getVar('bahasa');
-        $kategori = $this->request->getVar('kategori');
-        $penerbit = $this->request->getVar('penerbit');
-        $tahun = $this->request->getVar('tahun');
-        $deskripsi = $this->request->getVar('deskripsi');
-        $link = $this->request->getVar('link');
-        $gambar = $this->request->getFile('gambar');
-
-
+    /**
+     * Get reference validation rules
+     */
+    private function getReferenceValidationRules(bool $requireImage = false): array
+    {
         $rules = [
             'judul' => [
                 'label' => 'Judul',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[255]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong'
+                    'required' => 'Judul harus diisi',
+                    'min_length' => 'Judul minimal 3 karakter',
+                    'max_length' => 'Judul maksimal 255 karakter'
                 ]
             ],
-
             'pengarang' => [
                 'label' => 'Nama Pengarang',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Nama pengarang harus diisi',
+                    'min_length' => 'Nama pengarang minimal 3 karakter',
+                    'max_length' => 'Nama pengarang maksimal 100 karakter'
                 ]
             ],
             'bahasa' => [
                 'label' => 'Bahasa',
-                'rules' => 'required',
+                'rules' => 'required|in_list[Indonesia,English,Other]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Bahasa harus diisi',
+                    'in_list' => 'Bahasa harus Indonesia, English, atau Other'
                 ]
             ],
-
             'kategori' => [
                 'label' => 'Kategori',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[50]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Kategori harus diisi',
+                    'min_length' => 'Kategori minimal 3 karakter',
+                    'max_length' => 'Kategori maksimal 50 karakter'
                 ]
             ],
             'penerbit' => [
                 'label' => 'Penerbit',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Penerbit harus diisi',
+                    'min_length' => 'Penerbit minimal 3 karakter',
+                    'max_length' => 'Penerbit maksimal 100 karakter'
                 ]
             ],
-
             'tahun' => [
                 'label' => 'Tahun',
-                'rules' => 'required',
+                'rules' => 'required|integer|greater_than[1900]|less_than_equal_to[' . date('Y') . ']',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tahun harus diisi',
+                    'integer' => 'Tahun harus berupa angka',
+                    'greater_than' => 'Tahun harus lebih dari 1900',
+                    'less_than_equal_to' => 'Tahun tidak boleh lebih dari tahun sekarang'
                 ]
             ],
             'deskripsi' => [
                 'label' => 'Deskripsi',
-                'rules' => 'required',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Deskripsi harus diisi',
+                    'min_length' => 'Deskripsi minimal 10 karakter'
                 ]
             ],
-
             'link' => [
                 'label' => 'Link Referensi',
-                'rules' => 'required',
+                'rules' => 'required|valid_url',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Link referensi harus diisi',
+                    'valid_url' => 'Format URL tidak valid'
                 ]
-            ],
+            ]
         ];
 
-        if ($gambar->isValid() && !$gambar->hasMoved()) {
-            // Validasi gambar
-            $rules['gambar'] = 'uploaded[gambar]|mime_in[gambar,image/jpeg,image/png]|max_size[gambar,1024]';
+        if ($requireImage) {
+            $rules['gambar'] = [
+                'label' => 'Gambar Referensi',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'uploaded' => 'Gambar referensi harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
+                ]
+            ];
+        } else {
+            $rules['gambar'] = [
+                'label' => 'Gambar Referensi',
+                'rules' => 'max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
+                ]
+            ];
         }
 
-        $validation = \Config\Services::validation();
-        $isValid = $validation->withRequest($this->request)->setRules($rules)->run();
+        return $rules;
+    }
 
-        if (!$isValid) {
-            session()->setFlashData([
-                'error_judul' => $validation->getError('judul'),
-                'error_pengarang' => $validation->getError('pengarang'),
-                'error_bahasa' => $validation->getError('bahasa'),
-                'error_kategori' => $validation->getError('kategori'),
-                'error_penerbit' => $validation->getError('penerbit'),
-                'error_tahun' => $validation->getError('tahun'),
-                'error_deskripsi' => $validation->getError('deskripsi'),
-                'error_link' => $validation->getError('link'),
-                'error_gambar' => $validation->getError('gambar'),
+    /**
+     * Process image upload
+     */
+    private function processImageUpload(): ?string
+    {
+        $fileFoto = $this->request->getFile('gambar');
+        
+        if ($fileFoto->isValid() && !$fileFoto->hasMoved()) {
+            $namaFoto = "Referensi_" . $fileFoto->getRandomName();
+            $fileFoto->move(FCPATH . 'referensi', $namaFoto);
+            
+            // Optimize image
+            optimizeImageForWeb('referensi/' . $namaFoto, [
+                'width' => 300,
+                'height' => 300,
+                'quality' => 85
             ]);
-            return redirect()->back()->withInput();
-        } else {
-            if ($gambar->isValid() && !$gambar->hasMoved()) {
-                $referensi = $this->referensi->find($idReferensi);
-                if ($referensi['gambar'] !== null) {
-                    $oldFotoPath = FCPATH . 'referensi/' . $referensi['gambar'];
-                    if (file_exists($oldFotoPath)) {
-                        unlink($oldFotoPath);
-                    }
-                }
+            
+            return $namaFoto;
+        }
+        
+        return null;
+    }
 
-                $newFotoName = "Referensi" . '_' . $gambar->getRandomName();
-                $gambar->move(FCPATH . 'referensi', $newFotoName);
-
-                $data = [
-                    'judul' => $judul,
-                    'pengarang' => $pengarang,
-                    'bahasa' => $bahasa,
-                    'kategori' => $kategori,
-                    'penerbit' => $penerbit,
-                    'tahun' => $tahun,
-                    'deskripsi' => $deskripsi,
-                    'link' => $link,
-                    'gambar' => $newFotoName
-                ];
-
-                // Update data banner dengan foto baru
-                $this->referensi->update($idReferensi, $data);
-            } else {
-
-                $data = [
-                    'judul' => $judul,
-                    'pengarang' => $pengarang,
-                    'bahasa' => $bahasa,
-                    'kategori' => $kategori,
-                    'penerbit' => $penerbit,
-                    'tahun' => $tahun,
-                    'deskripsi' => $deskripsi,
-                    'link' => $link,
-                ];
-
-                $this->referensi->update($idReferensi, $data);
-            }
-
-            session()->setFlashdata('success', 'Data Referensi Berhasil Di Update');
-            return redirect()->to('/referensis');
+    /**
+     * Delete old image
+     */
+    private function deleteOldImage(string $imagePath): void
+    {
+        if ($imagePath && file_exists(FCPATH . 'referensi/' . $imagePath)) {
+            $this->deleteFile('referensi/' . $imagePath);
         }
     }
 
-    public function delete($id = null)
+    /**
+     * Save new reference
+     */
+    public function save()
     {
-        if ($this->request->isAJAX()) {
-            $cekReferensi = $this->referensi->find($id);
+        $data = $this->getFormData([
+            'judul', 'pengarang', 'bahasa', 'kategori', 'penerbit', 
+            'tahun', 'deskripsi', 'link'
+        ]);
 
-            if ($cekReferensi) {
-                // Menghapus foto jika ada
-                if ($cekReferensi['gambar'] !== null) {
-                    $fotoPath = FCPATH . 'referensi/' . $cekReferensi['gambar'];
-                    if (file_exists($fotoPath)) {
-                        unlink($fotoPath);
-                    }
-                }
+        $rules = $this->getReferenceValidationRules(true);
 
-                // Menghapus data dari database
-                $this->referensi->delete($id);
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'judul', 'pengarang', 'bahasa', 'kategori', 'penerbit', 
+                'tahun', 'deskripsi', 'link', 'gambar'
+            ]);
+        }
 
+        $newImage = $this->processImageUpload();
+        if (!$newImage) {
+            session()->setFlashdata('error_gambar', 'Gambar referensi harus diisi');
+            return redirect()->back()->withInput();
+        }
 
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
+        $this->referensiModel->insert([
+            'judul' => $data['judul'],
+            'pengarang' => $data['pengarang'],
+            'bahasa' => $data['bahasa'],
+            'kategori' => $data['kategori'],
+            'penerbit' => $data['penerbit'],
+            'tahun' => $data['tahun'],
+            'deskripsi' => $data['deskripsi'],
+            'link' => $data['link'],
+            'gambar' => $newImage,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->setSuccessMessage('Data Referensi Berhasil Ditambahkan', '/referensis');
+    }
+
+    /**
+     * Display edit form
+     */
+    public function edit($id = null)
+    {
+        $data = ['referensi' => $this->referensiModel->find($id)];
+        return view('backend/referensi/edit', $data);
+    }
+
+    /**
+     * Update existing reference
+     */
+    public function update()
+    {
+        $data = $this->getFormData([
+            'idreferensi', 'judul', 'pengarang', 'bahasa', 'kategori', 
+            'penerbit', 'tahun', 'deskripsi', 'link'
+        ]);
+        $idReferensi = $data['idreferensi'];
+
+        $gambar = $this->request->getFile('gambar');
+        $requireImage = $gambar->isValid() && !$gambar->hasMoved();
+        
+        $rules = $this->getReferenceValidationRules(false);
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'judul', 'pengarang', 'bahasa', 'kategori', 'penerbit', 
+                'tahun', 'deskripsi', 'link', 'gambar'
+            ]);
+        }
+
+        $updateData = [
+            'judul' => $data['judul'],
+            'pengarang' => $data['pengarang'],
+            'bahasa' => $data['bahasa'],
+            'kategori' => $data['kategori'],
+            'penerbit' => $data['penerbit'],
+            'tahun' => $data['tahun'],
+            'deskripsi' => $data['deskripsi'],
+            'link' => $data['link'],
+        ];
+
+        // Handle image update
+        if ($requireImage) {
+            $existingReferensi = $this->referensiModel->find($idReferensi);
+            if ($existingReferensi && $existingReferensi['gambar']) {
+                $this->deleteOldImage($existingReferensi['gambar']);
+            }
+            
+            $newImage = $this->processImageUpload();
+            if ($newImage) {
+                $updateData['gambar'] = $newImage;
             }
         }
+
+        $this->referensiModel->update($idReferensi, $updateData);
+
+        return $this->setSuccessMessage('Data Referensi Berhasil Di Update', '/referensis');
+    }
+
+    /**
+     * Delete reference
+     */
+    public function delete($id = null)
+    {
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
+        }
+
+        $referensi = $this->referensiModel->find($id);
+
+        if (!$referensi) {
+            return $this->jsonError('Data referensi tidak ditemukan', 404);
+        }
+
+        // Delete associated image
+        if ($referensi['gambar']) {
+            $this->deleteOldImage($referensi['gambar']);
+        }
+
+        $this->referensiModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }

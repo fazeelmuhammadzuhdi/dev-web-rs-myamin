@@ -6,13 +6,27 @@ use App\Controllers\BaseController;
 use App\Models\Kategori;
 use Hermawan\DataTables\DataTable;
 
+/**
+ * KategoriController handles category management functionality
+ * 
+ * This controller manages category creation, editing, deletion, and display
+ * with proper validation and slug generation.
+ */
 class KategoriController extends BaseController
 {
-    protected $kategori;
+    // Constants for better maintainability
+    private const STATUS_ACTIVE = 'Y';
+    private const STATUS_INACTIVE = 'N';
+    
+    // Model instance
+    private Kategori $kategoriModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->kategori = new Kategori();
+        $this->kategoriModel = new Kategori();
         helper('slug');
     }
 
@@ -59,126 +73,117 @@ class KategoriController extends BaseController
     }
 
 
-    public function save()
+    /**
+     * Get category validation rules
+     */
+    private function getCategoryValidationRules(): array
     {
-        $idKategori = $this->request->getVar('idkategori');
-        $title = $this->request->getVar('title');
-        $status = $this->request->getVar('status');
-
-        $rules = $this->validate([
+        return [
             'idkategori' => [
-                'label' => 'Kategori',
-                'rules' => 'required',
+                'label' => 'ID Kategori',
+                'rules' => 'required|min_length[3]|max_length[20]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong'
+                    'required' => 'ID Kategori tidak boleh kosong',
+                    'min_length' => 'ID Kategori minimal 3 karakter',
+                    'max_length' => 'ID Kategori maksimal 20 karakter'
                 ]
             ],
-
             'title' => [
                 'label' => 'Judul Kategori',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Judul kategori tidak boleh kosong',
+                    'min_length' => 'Judul minimal 3 karakter',
+                    'max_length' => 'Judul maksimal 100 karakter'
                 ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_kategori' => $validation->getError('idkategori'),
-                'error_title' => $validation->getError('title'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $this->kategori->insert([
-                'idkategori' => $idKategori,
-                'title' => $title,
-                // jika statusnya kosong maka akan di set default menjadi Y
-                'status' => $status ? $status : 'Y',
-                'slug' => createSlug($title),
-                'created_at' => date('Y-m-d H:i:s')
-            ]);
-
-            session()->setFlashdata('success', 'Data Kategori Berhasil Di Tambahkan');
-            return redirect()->to('/kategoris');
-        }
+            ]
+        ];
     }
 
+    /**
+     * Save new category
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['idkategori', 'title', 'status']);
+
+        $rules = $this->getCategoryValidationRules();
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['idkategori', 'title']);
+        }
+
+        $this->kategoriModel->insert([
+            'idkategori' => $data['idkategori'],
+            'title' => $data['title'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'slug' => createSlug($data['title']),
+            'created_at' => date('Y-m-d H:i:s')
+        ]);
+
+        return $this->setSuccessMessage('Data Kategori Berhasil Ditambahkan', '/kategoris');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['kategori'] = $this->kategori->find($id);
+        $data = ['kategori' => $this->kategoriModel->find($id)];
         return view('backend/kategori/edit', $data);
     }
 
-
-
+    /**
+     * Update existing category
+     */
     public function update()
     {
-        $idKategori = $this->request->getVar('idkategori');
-        $oldIdKategori = $this->request->getVar('old_idkategori'); // hidden field to store original ID
-        $title = $this->request->getVar('title');
-        $status = $this->request->getVar('status');
+        $data = $this->getFormData(['idkategori', 'old_idkategori', 'title', 'status']);
+        $idKategori = $data['idkategori'];
+        $oldIdKategori = $data['old_idkategori'];
 
-        $rules = $this->validate([
-            'idkategori' => [
-                'label' => 'Kategori',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong'
-                ]
-            ],
-            'title' => [
-                'label' => 'Judul Kategori',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-        ]);
+        $rules = $this->getCategoryValidationRules();
 
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_kategori' => $validation->getError('idkategori'),
-                'error_title' => $validation->getError('title'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            // Update non-key fields first
-            $data = [
-                'title' => $title,
-                'status' => $status ? $status : 'Y',
-                'slug' => createSlug($title),
-                'created_at' => date('Y-m-d H:i:s'),
-            ];
-
-            $this->kategori->update($oldIdKategori, $data);
-
-            if ($idKategori !== $oldIdKategori) {
-                $this->kategori->query("UPDATE kategori SET idkategori = ? WHERE idkategori = ?", [$idKategori, $oldIdKategori]);
-            }
-
-            session()->setFlashdata('success', 'Data Kategori Berhasil Di Update');
-            return redirect()->to('/kategoris');
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['idkategori', 'title']);
         }
+
+        // Update non-key fields first
+        $updateData = [
+            'title' => $data['title'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'slug' => createSlug($data['title']),
+            'created_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $this->kategoriModel->update($oldIdKategori, $updateData);
+
+        // Update primary key if changed
+        if ($idKategori !== $oldIdKategori) {
+            $this->kategoriModel->query("UPDATE kategori SET idkategori = ? WHERE idkategori = ?", [$idKategori, $oldIdKategori]);
+        }
+
+        return $this->setSuccessMessage('Data Kategori Berhasil Di Update', '/kategoris');
     }
 
 
+    /**
+     * Delete category
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $idKategori = $this->kategori->find($id);
-
-            if ($idKategori) {
-                $this->kategori->delete($id);
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $kategori = $this->kategoriModel->find($id);
+
+        if (!$kategori) {
+            return $this->jsonError('Kategori tidak ditemukan', 404);
+        }
+
+        $this->kategoriModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }
