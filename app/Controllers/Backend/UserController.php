@@ -65,10 +65,10 @@ class UserController extends BaseController
                 return $this->formatRoleBadge($row->role);
             })
             ->edit('status', function ($row) {
-                return $this->formatStatusBadge($row->status);
+                return $this->formatStatusBadge($row->status, ['A' => ['class' => 'badge-success', 'text' => 'Aktif'], 'I' => ['class' => 'badge-danger', 'text' => 'Tidak Aktif']]);
             })
             ->add('action', function ($row) {
-                return $this->formatActionButtons($row->iduser, $row->username);
+                return $this->formatUserActionButtons($row->iduser, $row->username);
             }, 'last')
             ->toJson();
     }
@@ -86,30 +86,11 @@ class UserController extends BaseController
     }
 
     /**
-     * Format status badge
+     * Format action buttons - using BaseController protected method
      */
-    private function formatStatusBadge(string $status): string
+    private function formatUserActionButtons(int $id, string $username): string
     {
-        if ($status === self::STATUS_ACTIVE) {
-            return '<span class="badge badge-success">Aktif</span>';
-        }
-        
-        return '<span class="badge badge-danger">Tidak Aktif</span>';
-    }
-
-    /**
-     * Format action buttons
-     */
-    private function formatActionButtons(int $id, string $username): string
-    {
-        return '<div class="d-flex" role="group">
-            <button type="button" class="btn btn-round btn-danger mx-1" nama="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($username) . '\')">
-                <i class="feather icon-trash-2"></i>
-            </button>
-            <button type="button" class="btn btn-round btn-primary" nama="Edit Data" onclick="edit(\'' . $id . '\')">
-                <i class="feather icon-edit"></i>
-            </button>
-        </div>';
+        return $this->formatActionButtons($id, $username);
     }
 
 
