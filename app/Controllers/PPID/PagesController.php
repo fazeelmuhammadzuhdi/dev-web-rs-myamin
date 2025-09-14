@@ -2,239 +2,305 @@
 
 namespace App\Controllers\PPID;
 
-use DOMDocument;
 use App\Models\PagesPPID;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
 
+/**
+ * PagesController handles PPID pages management functionality
+ * 
+ * This controller manages PPID pages including creation, editing, deletion, and display
+ * with image handling and content management.
+ */
 class PagesController extends BaseController
 {
-    protected $pages;
+    // Constants for better maintainability
+    private const MAX_FILE_SIZE = 1024; // 1MB
+    private const ALLOWED_IMAGE_TYPES = 'image/jpeg,image/png,image/jpg';
+    private const STATUS_ACTIVE = 'Y';
+    private const STATUS_INACTIVE = 'N';
+    
+    // Model instance
+    private PagesPPID $pagesModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->pages = new PagesPPID();
+        $this->pagesModel = new PagesPPID();
         helper('slug');
     }
 
+    /**
+     * Display pages index page
+     */
     public function index()
     {
-        $data['title'] = 'Pages';
-
+        $data = ['title' => 'Pages'];
         return view('backend/pages/index', $data);
     }
 
+    /**
+     * Display pages creation form
+     */
     public function create()
     {
         return view('backend/pages/create');
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->pages->select('idpages,title,konten,status');
-
-
-            return DataTable::of($builder)
-                ->edit('status', function ($row) {
-                    if ($row->status == 'Y') {
-                        return '<span class="badge badge-success">Aktif</span>';
-                    } else {
-                        return '<span class="badge badge-danger">Tidak Aktif</span>';
-                    }
-                })
-
-                ->edit('konten', function ($row) {
-                    if ($row->konten) {
-                        $doc = new DOMDocument();
-                        @$doc->loadHTML($row->konten);
-                        return $doc->textContent;
-                    }
-                    return '-';
-                })
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $row->idpages . '\',\'' . $row->title . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $row->idpages . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->pagesModel->select('idpages,title,konten,status');
+
+        return DataTable::of($builder)
+            ->edit('status', function ($row) {
+                return $this->formatStatusBadge($row->status);
+            })
+            ->edit('konten', function ($row) {
+                return $this->formatContentColumn($row->konten);
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idpages, $row->title);
+            }, 'last')
+            ->toJson();
     }
 
-
-    public function save()
+    /**
+     * Format status badge
+     */
+    private function formatStatusBadge(string $status): string
     {
-        $title = $this->request->getVar('title');
-        $konten = $this->request->getVar('konten');
-        $status = $this->request->getVar('status');
+        if ($status === self::STATUS_ACTIVE) {
+            return '<span class="badge badge-success">Aktif</span>';
+        }
+        
+        return '<span class="badge badge-danger">Tidak Aktif</span>';
+    }
 
-        $rules = $this->validate([
-            'konten' => [
-                'label' => 'Konten Pages',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
+    /**
+     * Format content column
+     */
+    private function formatContentColumn(?string $konten): string
+    {
+        if ($konten) {
+            // Strip HTML tags and limit length
+            $text = strip_tags($konten);
+            return strlen($text) > 100 ? substr($text, 0, 100) . '...' : $text;
+        }
+        
+        return '-';
+    }
+
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $title): string
+    {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($title) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
+
+    /**
+     * Get pages validation rules
+     */
+    private function getPagesValidationRules(bool $requireImage = false): array
+    {
+        $rules = [
             'title' => [
                 'label' => 'Judul Pages',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Judul pages harus diisi',
+                    'min_length' => 'Judul minimal 3 karakter',
+                    'max_length' => 'Judul maksimal 100 karakter'
                 ]
             ],
-            'gambar' => [
+            'konten' => [
+                'label' => 'Konten Pages',
+                'rules' => 'required|min_length[10]',
+                'errors' => [
+                    'required' => 'Konten pages harus diisi',
+                    'min_length' => 'Konten minimal 10 karakter'
+                ]
+            ]
+        ];
+
+        if ($requireImage) {
+            $rules['gambar'] = [
                 'label' => 'Gambar Banner',
-                'rules' => 'uploaded[gambar]|max_size[gambar,1024]|mime_in[gambar,image/jpeg,image/png,image/jpg]',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
                 'errors' => [
-                    'uploaded' => '{field} tidak boleh kosong',
-                    'max_size' => 'Ukuran {field} maksimum 1MB',
-                    'mime_in' => 'Format {field} harus JPEG ,PNG atau JPG'
+                    'uploaded' => 'Gambar banner harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
                 ]
-            ],
-
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_pages' => $validation->getError('idpages'),
-                'error_title' => $validation->getError('title'),
-                'error_gambar' => $validation->getError('gambar'),
-
-            ]);
-            return redirect()->back()->withInput();
+            ];
         } else {
-            $fileFoto = $this->request->getFile('gambar');
+            $rules['gambar'] = [
+                'label' => 'Gambar Banner',
+                'rules' => 'max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
+                ]
+            ];
+        }
 
-            $namaFoto = "ppid" . '_' . $fileFoto->getRandomName();
-            // Pindahkan file foto ke folder tujuan (public/banner)
+        return $rules;
+    }
+
+    /**
+     * Process image upload
+     */
+    private function processImageUpload(): ?string
+    {
+        $fileFoto = $this->request->getFile('gambar');
+        
+        if ($fileFoto->isValid() && !$fileFoto->hasMoved()) {
+            $namaFoto = "ppid_" . $fileFoto->getRandomName();
             $fileFoto->move(FCPATH . 'frontend/images/ppid', $namaFoto);
-
-            $this->pages->insert([
-                'title' => $title,
-                'konten' => $konten,
-                'slug' => createSlug($title),
-                'status' => $status ? $status : 'Y',
-                'created_at' => date('Y-m-d H:i:s'),
-                'gambar' => $namaFoto,
+            
+            // Optimize image
+            optimizeImageForWeb('frontend/images/ppid/' . $namaFoto, [
+                'width' => 800,
+                'height' => 600,
+                'quality' => 85
             ]);
+            
+            return $namaFoto;
+        }
+        
+        return null;
+    }
 
-            session()->setFlashdata('success', 'Data Pages Berhasil Di Tambahkan');
-            return redirect()->to('/page');
+    /**
+     * Delete old image
+     */
+    private function deleteOldImage(string $imagePath): void
+    {
+        if ($imagePath && file_exists(FCPATH . 'frontend/images/ppid/' . $imagePath)) {
+            $this->deleteFile('frontend/images/ppid/' . $imagePath);
         }
     }
 
+    /**
+     * Save new page
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['title', 'konten', 'status']);
+
+        $rules = $this->getPagesValidationRules(true);
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['title', 'konten', 'gambar']);
+        }
+
+        $newImage = $this->processImageUpload();
+        if (!$newImage) {
+            session()->setFlashdata('error_gambar', 'Gambar banner harus diisi');
+            return redirect()->back()->withInput();
+        }
+
+        $this->pagesModel->insert([
+            'title' => $data['title'],
+            'konten' => $data['konten'],
+            'slug' => createSlug($data['title']),
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'created_at' => date('Y-m-d H:i:s'),
+            'gambar' => $newImage,
+        ]);
+
+        return $this->setSuccessMessage('Data Pages Berhasil Ditambahkan', '/page');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['page'] = $this->pages->find($id);
+        $data = ['page' => $this->pagesModel->find($id)];
         return view('backend/pages/edit', $data);
     }
 
-
-
+    /**
+     * Update existing page
+     */
     public function update()
     {
-        $idPages = $this->request->getVar('idpages');
-        $konten = $this->request->getVar('konten');
-        $title = $this->request->getVar('title');
-        $status = $this->request->getVar('status');
+        $data = $this->getFormData(['idpages', 'title', 'konten', 'status']);
+        $idPages = $data['idpages'];
+
         $gambar = $this->request->getFile('gambar');
+        $requireImage = $gambar->isValid() && !$gambar->hasMoved();
+        
+        $rules = $this->getPagesValidationRules(false);
 
-        $rules = $this->validate([
-            'konten' => [
-                'label' => 'Konten Pages',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'title' => [
-                'label' => 'Judul Pages',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_konten' => $validation->getError('konten'),
-                'error_title' => $validation->getError('title'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            // Menghapus foto lama jika ada foto baru diunggah
-            if ($gambar->isValid() && !$gambar->hasMoved()) {
-                $banner = $this->pages->find($idPages);
-                if ($banner['gambar'] !== null) {
-                    $oldFotoPath = FCPATH . 'frontend/images/ppid/' . $banner['gambar'];
-                    if (file_exists($oldFotoPath)) {
-                        unlink($oldFotoPath);
-                    }
-                }
-
-                $newFotoName = "ppid" . '_' . $gambar->getRandomName();
-                $gambar->move(FCPATH . 'frontend/images/ppid/', $newFotoName);
-
-                $this->pages->update($idPages, [
-                    'title' => $title,
-                    'konten' => $konten,
-                    'status' => $status ? $status : 'Y',
-                    'slug' => createSlug($title),
-                    'gambar' => $newFotoName,
-                ]);
-            } else {
-                // Jika tidak ada foto baru diunggah, update data banner tanpa foto
-                $this->pages->update($idPages, [
-                    'title' => $title,
-                    'konten' => $konten,
-                    'status' => $status ? $status : 'Y',
-                    'slug' => createSlug($title),
-                ]);
-            }
-
-
-
-            session()->setFlashdata('success', "Data Berhasil Di Update");
-            return redirect()->to('/page');
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['title', 'konten', 'gambar']);
         }
+
+        $updateData = [
+            'title' => $data['title'],
+            'konten' => $data['konten'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'slug' => createSlug($data['title']),
+        ];
+
+        // Handle image update
+        if ($requireImage) {
+            $existingPage = $this->pagesModel->find($idPages);
+            if ($existingPage && $existingPage['gambar']) {
+                $this->deleteOldImage($existingPage['gambar']);
+            }
+            
+            $newImage = $this->processImageUpload();
+            if ($newImage) {
+                $updateData['gambar'] = $newImage;
+            }
+        }
+
+        $this->pagesModel->update($idPages, $updateData);
+
+        return $this->setSuccessMessage('Data Berhasil Di Update', '/page');
     }
 
-
+    /**
+     * Delete page
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $idPages = $this->pages->find($id);
-
-            if ($idPages) {
-                // Menghapus foto jika ada
-                if ($idPages['gambar'] !== null) {
-                    $fotoPath = FCPATH . 'frontend/images/ppid/' . $idPages['gambar'];
-                    if (file_exists($fotoPath)) {
-                        unlink($fotoPath);
-                    }
-                }
-
-                // Menghapus data dari database
-                $this->pages->delete($id);
-
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $page = $this->pagesModel->find($id);
+
+        if (!$page) {
+            return $this->jsonError('Data page tidak ditemukan', 404);
+        }
+
+        // Delete associated image
+        if ($page['gambar']) {
+            $this->deleteOldImage($page['gambar']);
+        }
+
+        $this->pagesModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }

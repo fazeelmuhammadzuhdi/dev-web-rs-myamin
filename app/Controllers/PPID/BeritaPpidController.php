@@ -3,527 +3,497 @@
 namespace App\Controllers\PPID;
 
 use App\Models\BeritaPPID;
+use App\Models\KategoriInformasiPPID;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
-use App\Models\KategoriInformasiPPID;
 
+/**
+ * BeritaPpidController handles PPID news management functionality
+ * 
+ * This controller manages PPID and PKRS news creation, editing, deletion, and display
+ * with API integration and comprehensive reporting features.
+ */
 class BeritaPpidController extends BaseController
 {
-    protected $beritappid;
-    protected $kategori;
+    // Model instances
+    private BeritaPPID $beritaPpidModel;
+    private KategoriInformasiPPID $kategoriModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->beritappid = new BeritaPPID();
-        $this->kategori = new KategoriInformasiPPID();
-        // slug
+        $this->beritaPpidModel = new BeritaPPID();
+        $this->kategoriModel = new KategoriInformasiPPID();
         helper('slug');
     }
 
-    public function index($tipe = 'ppid')
+    /**
+     * Display PPID news index page
+     */
+    public function index(string $tipe = 'ppid')
     {
-        $data['title'] = ($tipe === 'ppid') ? 'Berita PPID' : 'Informasi PKRS';
-        $data['tipe'] = $tipe;
+        $data = [
+            'title' => ($tipe === 'ppid') ? 'Berita PPID' : 'Informasi PKRS',
+            'tipe' => $tipe
+        ];
 
         return view('backend/beritappid/index', $data);
     }
 
-
-    public function create($tipe = 'ppid')
+    /**
+     * Display PPID news creation form
+     */
+    public function create(string $tipe = 'ppid')
     {
-
-        $kategori =  [];
-
-        if ($tipe === 'ppid') {
-            $kategori = BeritaPPID::KATEGORI_PPID;
-        } else {
-            $kategori = BeritaPPID::KATEGORI_PKRS;
-        }
-
-        $data['kategori'] = $this->kategori->where('status', 'Y')->whereIn('idkategori', $kategori)->findAll();
-        $data['tipe'] = $tipe;
-
+        $kategori = $this->getKategoriByType($tipe);
+        
+        $data = [
+            'kategori' => $this->kategoriModel->where('status', 'Y')
+                ->whereIn('idkategori', $kategori)
+                ->findAll(),
+            'tipe' => $tipe
+        ];
 
         return view('backend/beritappid/create', $data);
     }
 
-    public function getData($tipe = 'ppid')
+    /**
+     * Get categories by type
+     */
+    private function getKategoriByType(string $tipe): array
     {
-        if ($this->request->isAJAX()) {
-
-            $kategori =  [];
-
-            if ($tipe === 'ppid') {
-                $kategori = BeritaPPID::KATEGORI_PPID;
-            } else {
-                $kategori = BeritaPPID::KATEGORI_PKRS;
-            }
-
-
-            $builder = $this->beritappid->getBerita($kategori);
-
-
-            return DataTable::of($builder)
-
-                ->edit('status', function ($row) {
-                    if ($row->status == 'Y') {
-                        return '<span class="badge badge-success">Publish</span>';
-                    } else {
-                        return '<span class="badge badge-danger">Belum Publish</span>';
-                    }
-                })
-                ->edit('link', function ($row) {
-                    if ($row->link !== null) {
-                        return '<a href="' . $row->link . '" target="_blank">' . $row->link . '</a>';
-                    } else {
-                        return '';
-                    }
-                })
-                ->edit('tanggal', function ($row) {
-                    return tanggal_indonesia($row->tanggal);
-                })
-
-
-                ->add('action', function ($row) use ($tipe) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" judul="Hapus Data" onclick="hapus(\'' . $row->idberita . '\',\'' . $row->judul . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" judul="Edit Data" onclick="edit(\'' . $row->idberita . '\',\'' . $tipe . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
-        }
+        return ($tipe === 'ppid') ? BeritaPPID::KATEGORI_PPID : BeritaPPID::KATEGORI_PKRS;
     }
 
-
-    public function save($tipe = 'ppid')
+    /**
+     * Get data for DataTable
+     */
+    public function getData(string $tipe = 'ppid')
     {
-        $kategori_id = $this->request->getVar('kategori_id');
-        $judul = $this->request->getVar('judul');
-        $tanggal = $this->request->getVar('tanggal');
-        $tahun = $this->request->getVar('tahun');
-        $jangka = $this->request->getVar('jangka');
-        $penanggungJawab = $this->request->getVar('penanggung_jawab');
-        $tempat = $this->request->getVar('tempat');
-        $link = $this->request->getVar('link');
-        $filetype = $this->request->getVar('filetype');
-        $konten = $this->request->getVar('konten');
-        $status = $this->request->getVar('status');
-        $userId = session()->get('idUser');
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
+        }
 
-        $rules = $this->validate([
+        $kategori = $this->getKategoriByType($tipe);
+        $builder = $this->beritaPpidModel->getBerita($kategori);
+
+        return DataTable::of($builder)
+            ->edit('status', function ($row) {
+                return $this->formatStatusBadge($row->status);
+            })
+            ->edit('link', function ($row) {
+                return $this->formatLinkColumn($row->link);
+            })
+            ->edit('tanggal', function ($row) {
+                return tanggal_indonesia($row->tanggal);
+            })
+            ->add('action', function ($row) use ($tipe) {
+                return $this->formatActionButtons($row->idberita, $row->judul, $tipe);
+            }, 'last')
+            ->toJson();
+    }
+
+    /**
+     * Format status badge
+     */
+    private function formatStatusBadge(string $status): string
+    {
+        if ($status === 'Y') {
+            return '<span class="badge badge-success">Publish</span>';
+        }
+        
+        return '<span class="badge badge-danger">Belum Publish</span>';
+    }
+
+    /**
+     * Format link column
+     */
+    private function formatLinkColumn(?string $link): string
+    {
+        if ($link) {
+            return '<a href="' . esc($link) . '" target="_blank" rel="noopener noreferrer">' . esc($link) . '</a>';
+        }
+        
+        return '';
+    }
+
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $judul, string $tipe): string
+    {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($judul) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\',\'' . $tipe . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
+
+    /**
+     * Get PPID news validation rules
+     */
+    private function getPpidNewsValidationRules(): array
+    {
+        return [
             'judul' => [
                 'label' => 'Judul Berita PPID',
-                'rules' => 'required',
+                'rules' => 'required|min_length[5]|max_length[255]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Judul berita PPID harus diisi',
+                    'min_length' => 'Judul minimal 5 karakter',
+                    'max_length' => 'Judul maksimal 255 karakter'
                 ]
             ],
             'tahun' => [
-                'label' => 'tahun Berita PPID',
-                'rules' => 'required',
+                'label' => 'Tahun Berita PPID',
+                'rules' => 'required|integer|greater_than[2000]|less_than_equal_to[' . date('Y') . ']',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tahun berita PPID harus diisi',
+                    'integer' => 'Tahun harus berupa angka',
+                    'greater_than' => 'Tahun harus lebih dari 2000',
+                    'less_than_equal_to' => 'Tahun tidak boleh lebih dari tahun sekarang'
                 ]
             ],
             'jangka' => [
                 'label' => 'Jangka Berita PPID',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[50]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Jangka berita PPID harus diisi',
+                    'min_length' => 'Jangka minimal 3 karakter',
+                    'max_length' => 'Jangka maksimal 50 karakter'
                 ]
             ],
             'penanggung_jawab' => [
                 'label' => 'Penanggung Jawab Berita PPID',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Penanggung jawab berita PPID harus diisi',
+                    'min_length' => 'Penanggung jawab minimal 3 karakter',
+                    'max_length' => 'Penanggung jawab maksimal 100 karakter'
                 ]
             ],
             'tempat' => [
                 'label' => 'Tempat Berita PPID',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat berita PPID harus diisi',
+                    'min_length' => 'Tempat minimal 3 karakter',
+                    'max_length' => 'Tempat maksimal 100 karakter'
                 ]
             ],
             'link' => [
                 'label' => 'Link Berita PPID',
-                'rules' => 'required',
+                'rules' => 'required|valid_url',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Link berita PPID harus diisi',
+                    'valid_url' => 'Format URL tidak valid'
                 ]
             ],
             'filetype' => [
                 'label' => 'Filetype Berita PPID',
-                'rules' => 'required',
+                'rules' => 'required|in_list[pdf.png,doc.png,xls.png,ppt.png]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Filetype berita PPID harus diisi',
+                    'in_list' => 'Filetype harus PDF, DOC, XLS, atau PPT'
                 ]
             ],
             'tanggal' => [
                 'label' => 'Tanggal Berita PPID',
-                'rules' => 'required',
+                'rules' => 'required|valid_date',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tanggal berita PPID harus diisi',
+                    'valid_date' => 'Format tanggal tidak valid'
                 ]
             ],
-
             'konten' => [
                 'label' => 'Konten Berita',
-                'rules' => 'required',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Konten berita harus diisi',
+                    'min_length' => 'Konten minimal 10 karakter'
                 ]
             ],
             'kategori_id' => [
                 'label' => 'Kategori Berita',
-                'rules' => 'required',
+                'rules' => 'required|integer',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Kategori berita harus diisi',
+                    'integer' => 'Kategori harus berupa angka'
                 ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_judul' => $validation->getError('judul'),
-                'error_tanggal' => $validation->getError('tanggal'),
-                'error_konten' => $validation->getError('konten'),
-                'error_tahun' => $validation->getError('tahun'),
-                'error_jangka' => $validation->getError('jangka'),
-                'error_penanggung_jawab' => $validation->getError('penanggung_jawab'),
-                'error_tempat' => $validation->getError('tempat'),
-                'error_link' => $validation->getError('link'),
-                'error_filetype' => $validation->getError('filetype'),
-                'error_kategori_id' => $validation->getError('kategori_id'),
-                'error_status' => $validation->getError('status'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-
-
-            $this->beritappid->insert([
-                'judul' => $judul,
-                'user_id' => $userId,
-                'tanggal' => $tanggal,
-                'konten' => $konten,
-                'kategori_id' => $kategori_id,
-                'status' => $status,
-                'tahun' => $tahun,
-                'jangka' => $jangka,
-                'penanggung_jawab' => $penanggungJawab,
-                'tempat' => $tempat,
-                'link' => $link,
-                'filetype' => $filetype,
-                'slug' => createSlug($judul),
-                'nm_status' => 'Publish',
-            ]);
-
-            session()->setFlashdata('success', 'Data Berita PPID Berhasil Ditambahkan');
-            return redirect()->to('/beritappid/' . $tipe);
-        }
+            ]
+        ];
     }
 
-
-
-    public function edit($id = null, $tipe = 'ppid')
+    /**
+     * Save new PPID news
+     */
+    public function save(string $tipe = 'ppid')
     {
-        $data['beritappid'] = $this->beritappid->find($id);
+        $data = $this->getFormData([
+            'kategori_id', 'judul', 'tanggal', 'tahun', 'jangka', 'penanggung_jawab',
+            'tempat', 'link', 'filetype', 'konten', 'status'
+        ]);
 
-        $kategori =  [];
+        $rules = $this->getPpidNewsValidationRules();
 
-        if ($tipe === 'ppid') {
-            $kategori = BeritaPPID::KATEGORI_PPID;
-        } else {
-            $kategori = BeritaPPID::KATEGORI_PKRS;
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'judul', 'tanggal', 'konten', 'tahun', 'jangka', 'penanggung_jawab',
+                'tempat', 'link', 'filetype', 'kategori_id', 'status'
+            ]);
         }
 
-        $data['kategori'] = $this->kategori->where('status', 'Y')->whereIn('idkategori', $kategori)->findAll();
-        $data['tipe'] = $tipe;
+        $this->beritaPpidModel->insert([
+            'judul' => $data['judul'],
+            'user_id' => session()->get('idUser'),
+            'tanggal' => $data['tanggal'],
+            'konten' => $data['konten'],
+            'kategori_id' => $data['kategori_id'],
+            'status' => $data['status'],
+            'tahun' => $data['tahun'],
+            'jangka' => $data['jangka'],
+            'penanggung_jawab' => $data['penanggung_jawab'],
+            'tempat' => $data['tempat'],
+            'link' => $data['link'],
+            'filetype' => $data['filetype'],
+            'slug' => createSlug($data['judul']),
+            'nm_status' => 'Publish',
+        ]);
+
+        return $this->setSuccessMessage('Data Berita PPID Berhasil Ditambahkan', '/beritappid/' . $tipe);
+    }
+
+    /**
+     * Display edit form
+     */
+    public function edit($id = null, string $tipe = 'ppid')
+    {
+        $kategori = $this->getKategoriByType($tipe);
+        
+        $data = [
+            'beritappid' => $this->beritaPpidModel->find($id),
+            'kategori' => $this->kategoriModel->where('status', 'Y')
+                ->whereIn('idkategori', $kategori)
+                ->findAll(),
+            'tipe' => $tipe
+        ];
+        
         return view('backend/beritappid/edit', $data);
     }
 
+    /**
+     * Update existing PPID news
+     */
     public function update()
     {
-        $tipe = $this->request->getVar('tipe');
-        $idBerita = $this->request->getVar('idberita');
-        $kategori_id = $this->request->getVar('kategori_id');
-        $judul = $this->request->getVar('judul');
-        $tanggal = $this->request->getVar('tanggal');
-        $tahun = $this->request->getVar('tahun');
-        $jangka = $this->request->getVar('jangka');
-        $penanggungJawab = $this->request->getVar('penanggung_jawab');
-        $tempat = $this->request->getVar('tempat');
-        $link = $this->request->getVar('link');
-        $filetype = $this->request->getVar('filetype');
-        $konten = $this->request->getVar('konten');
-        $status = $this->request->getVar('status');
-        $userId = session()->get('idUser');
-
-
-        $rules = $this->validate([
-            'judul' => [
-                'label' => 'Judul Berita PPID',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'tahun' => [
-                'label' => 'tahun Berita PPID',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'jangka' => [
-                'label' => 'Jangka Berita PPID',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'penanggung_jawab' => [
-                'label' => 'Penanggung Jawab Berita PPID',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'tempat' => [
-                'label' => 'Tempat Berita PPID',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'link' => [
-                'label' => 'Link Berita PPID',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'filetype' => [
-                'label' => 'Filetype Berita PPID',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'tanggal' => [
-                'label' => 'Tanggal Berita PPID',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'konten' => [
-                'label' => 'Konten Berita',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'kategori_id' => [
-                'label' => 'Kategori Berita',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
+        $data = $this->getFormData([
+            'tipe', 'idberita', 'kategori_id', 'judul', 'tanggal', 'tahun', 'jangka',
+            'penanggung_jawab', 'tempat', 'link', 'filetype', 'konten', 'status'
         ]);
+        
+        $tipe = $data['tipe'];
+        $idBerita = $data['idberita'];
 
+        $rules = $this->getPpidNewsValidationRules();
 
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_judul' => $validation->getError('judul'),
-                'error_tanggal' => $validation->getError('tanggal'),
-                'error_konten' => $validation->getError('konten'),
-                'error_tahun' => $validation->getError('tahun'),
-                'error_jangka' => $validation->getError('jangka'),
-                'error_penanggung_jawab' => $validation->getError('penanggung_jawab'),
-                'error_tempat' => $validation->getError('tempat'),
-                'error_link' => $validation->getError('link'),
-                'error_filetype' => $validation->getError('filetype'),
-                'error_kategori_id' => $validation->getError('kategori_id'),
-                'error_status' => $validation->getError('status'),
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'judul', 'tanggal', 'konten', 'tahun', 'jangka', 'penanggung_jawab',
+                'tempat', 'link', 'filetype', 'kategori_id', 'status'
             ]);
-            return redirect()->back()->withInput();
-        } else {
-
-
-            $this->beritappid->update($idBerita, [
-                'judul' => $judul,
-                'user_id' => $userId,
-                'tanggal' => $tanggal,
-                'konten' => $konten,
-                'kategori_id' => $kategori_id,
-                'status' => $status,
-                'tahun' => $tahun,
-                'jangka' => $jangka,
-                'penanggung_jawab' => $penanggungJawab,
-                'tempat' => $tempat,
-                'link' => $link,
-                'filetype' => $filetype,
-                'slug' => createSlug($judul),
-                'nm_status' => 'Publish',
-            ]);
-
-            session()->setFlashdata('success', 'Data Berita PPID Berhasil Di Update');
-            return redirect()->to('/beritappid/' . $tipe);
         }
+
+        $updateData = [
+            'judul' => $data['judul'],
+            'user_id' => session()->get('idUser'),
+            'tanggal' => $data['tanggal'],
+            'konten' => $data['konten'],
+            'kategori_id' => $data['kategori_id'],
+            'status' => $data['status'],
+            'tahun' => $data['tahun'],
+            'jangka' => $data['jangka'],
+            'penanggung_jawab' => $data['penanggung_jawab'],
+            'tempat' => $data['tempat'],
+            'link' => $data['link'],
+            'filetype' => $data['filetype'],
+            'slug' => createSlug($data['judul']),
+            'nm_status' => 'Publish',
+        ];
+
+        $this->beritaPpidModel->update($idBerita, $updateData);
+
+        return $this->setSuccessMessage('Data Berita PPID Berhasil Di Update', '/beritappid/' . $tipe);
     }
 
+    /**
+     * Delete PPID news
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $cekReferensi = $this->beritappid->find($id);
-
-            if ($cekReferensi) {
-
-                // Menghapus data dari database
-                $this->beritappid->delete($id);
-
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $berita = $this->beritaPpidModel->find($id);
+
+        if (!$berita) {
+            return $this->jsonError('Data berita tidak ditemukan', 404);
+        }
+
+        $this->beritaPpidModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 
+    /**
+     * Display API data page
+     */
     public function apiIndex()
     {
-        $data['title'] = 'List Berita PPID API';
-        $data['beritaPpid'] = $this->getDataApi();
-        $data['existingData'] = $this->beritappid->getExistingData();
-        // Buat array untuk memudahkan pengecekan
+        $data = [
+            'title' => 'List Berita PPID API',
+            'beritaPpid' => $this->getDataApi(),
+            'existingData' => $this->beritaPpidModel->getExistingData(),
+        ];
+
+        // Create array for easier checking
         $existingIds = array_column($data['existingData'], 'idberita');
         $data['existingIds'] = $existingIds;
 
         return view('backend/beritappid/dataapippid', $data);
     }
 
-    public function getDataApi()
+    /**
+     * Get data from external API
+     */
+    public function getDataApi(): array
     {
         $apiUrl = 'https://ppid.sumbarprov.go.id/api/cluster-data?id_instansi=99';
 
-        // Ambil data dari API menggunakan cURL
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $apiUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        
         $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        // Ubah respons dari JSON ke array
+        if ($httpCode !== 200 || !$response) {
+            return [];
+        }
+
         $data = json_decode($response, true);
-
-
-        return $data;
+        return is_array($data) ? $data : [];
     }
 
+    /**
+     * Generate public information report
+     */
     public function cetakLaporanInformasiPublik()
     {
-        $data['title'] = 'Laporan Daftar Informasi Publik RSUD. Prof. H. Muhammad. Yamin, SH';
-
-        // Get the start and end year from the request
         $startYear = $this->request->getGet('startYear');
         $endYear = $this->request->getGet('endYear');
 
-        // Check if both startYear and endYear are provided, then modify the title
+        $title = 'Laporan Daftar Informasi Publik RSUD. Prof. H. Muhammad. Yamin, SH';
         if ($startYear && $endYear) {
-            $data['title'] = 'Laporan Daftar Informasi Publik RSUD. Prof. H. Muhammad. Yamin, SH Tahun ' . $startYear . ' Hingga ' . $endYear;
+            $title .= ' Tahun ' . $startYear . ' Hingga ' . $endYear;
         }
 
-
-        // Initialize query builder to fetch all data
-        $builder = $this->beritappid->builder();
-
-        // Filter kategori hanya untuk PPID
+        $builder = $this->beritaPpidModel->builder();
         $builder->whereIn('kategori_id', BeritaPPID::KATEGORI_PPID);
-        // Apply filtering if startYear or endYear are provided
+
         if ($startYear) {
             $builder->where('tahun >=', $startYear);
         }
         if ($endYear) {
             $builder->where('tahun <=', $endYear);
         }
-        // Order by 'tanggal' in descending order (latest first)
+
         $builder->orderBy('tanggal', 'DESC');
-        // Execute the query and fetch the filtered data
-        $data['beritaPpid'] = $builder->get()->getResultArray();
+        $beritaPpid = $builder->get()->getResultArray();
 
-        // dd($data['beritaPpid']);
-
-
-        $data['total'] = count($data['beritaPpid']);
-
-        // Convert images to Base64 for the report
-        $logoPemrov = base64_encode(file_get_contents(FCPATH . 'assets/pemprov.jpg'));
-        $data['srcLogoPemrov'] = 'data:image/png;base64,' . $logoPemrov;
-
-        $logoRsud = base64_encode(file_get_contents(FCPATH . 'assets/logo.png'));
-        $data['srcLogoRsud'] = 'data:image/png;base64,' . $logoRsud;
-        $data['startYear'] = $startYear;
-        $data['endYear'] = $endYear;
+        $data = [
+            'title' => $title,
+            'beritaPpid' => $beritaPpid,
+            'total' => count($beritaPpid),
+            'srcLogoPemrov' => $this->getBase64Image('assets/pemprov.jpg'),
+            'srcLogoRsud' => $this->getBase64Image('assets/logo.png'),
+            'startYear' => $startYear,
+            'endYear' => $endYear
+        ];
 
         return view('backend/beritappid/laporan-dip', $data);
     }
 
-
+    /**
+     * Save selected API data
+     */
     public function saveSelectedData()
     {
         $selectedData = $this->request->getPost('pilih');
 
-        if (!empty($selectedData)) {
-            foreach ($selectedData as $beritaJson) {
-                $berita = json_decode($beritaJson, true);
-
-                $existingData = $this->beritappid->where('idberita', $berita['id_content'])->first();
-                if ($existingData) {
-                    return redirect()->to('/apiberitappid')->with('error', 'Data dengan ID Content ' . $berita['id_content'] . ' sudah ada di database.');
-                }
-
-
-                // Siapkan data untuk dimasukkan ke dalam database
-                $data = [
-                    'idberita' => $berita['id_content'],
-                    'judul' => $berita['title_content'],
-                    'user_id' => $berita['id_user'],
-                    'tanggal' => $berita['created'],
-                    'konten' => $berita['title_sub_category'],
-                    'kategori_id' => $berita['id_category'],
-                    'tahun' => $berita['tahun'],
-                    'jangka' => $berita['jangka_waktu'],
-                    'tempat' => $berita['tgl_dan_tempat'],
-                    'penanggung_jawab' => $berita['penanggung_jawab'],
-                    'filetype' => 'pdf.png',
-                    'link' => $berita['downloads'],
-                    'download' => $berita['hits'],
-                    'slug' => createSlug($berita['title_content']), // Isi sesuai kebutuhan
-                    'nm_status' => $berita['nm_status'],
-                ];
-
-                // Masukkan data ke dalam database
-                $this->beritappid->insert($data);
-            }
-
-            return redirect()->to('/apiberitappid')->with('success', 'Data berhasil disimpan.');
+        if (empty($selectedData)) {
+            return redirect()->to('/apiberitappid')->with('error', 'Tidak ada data yang dipilih.');
         }
 
-        return redirect()->to('/apiberitappid')->with('error', 'Tidak ada data yang dipilih.');
+        foreach ($selectedData as $beritaJson) {
+            $berita = json_decode($beritaJson, true);
+
+            if (!$berita || !isset($berita['id_content'])) {
+                continue;
+            }
+
+            $existingData = $this->beritaPpidModel->where('idberita', $berita['id_content'])->first();
+            if ($existingData) {
+                return redirect()->to('/apiberitappid')->with('error', 'Data dengan ID Content ' . $berita['id_content'] . ' sudah ada di database.');
+            }
+
+            $data = [
+                'idberita' => $berita['id_content'],
+                'judul' => $berita['title_content'],
+                'user_id' => $berita['id_user'],
+                'tanggal' => $berita['created'],
+                'konten' => $berita['title_sub_category'],
+                'kategori_id' => $berita['id_category'],
+                'tahun' => $berita['tahun'],
+                'jangka' => $berita['jangka_waktu'],
+                'tempat' => $berita['tgl_dan_tempat'],
+                'penanggung_jawab' => $berita['penanggung_jawab'],
+                'filetype' => 'pdf.png',
+                'link' => $berita['downloads'],
+                'download' => $berita['hits'],
+                'slug' => createSlug($berita['title_content']),
+                'nm_status' => $berita['nm_status'],
+            ];
+
+            $this->beritaPpidModel->insert($data);
+        }
+
+        return redirect()->to('/apiberitappid')->with('success', 'Data berhasil disimpan.');
+    }
+
+    /**
+     * Convert image to base64
+     */
+    private function getBase64Image(string $imagePath): string
+    {
+        $fullPath = FCPATH . $imagePath;
+        
+        if (file_exists($fullPath)) {
+            $imageData = base64_encode(file_get_contents($fullPath));
+            $imageInfo = getimagesize($fullPath);
+            $mimeType = $imageInfo['mime'];
+            
+            return 'data:' . $mimeType . ';base64,' . $imageData;
+        }
+        
+        return '';
     }
 }
