@@ -4,103 +4,224 @@ namespace App\Controllers\Backend;
 
 use App\Models\Profil;
 use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
 
+/**
+ * ProfilController handles hospital profile management functionality
+ * 
+ * This controller manages hospital profile information including
+ * basic details, vision, mission, contact information, and logo.
+ */
 class ProfilController extends BaseController
 {
-    protected $profil;
+    // Constants for better maintainability
+    private const MAX_FILE_SIZE = 1024; // 1MB
+    private const ALLOWED_IMAGE_TYPES = 'image/jpeg,image/png,image/jpg';
+    
+    // Model instance
+    private Profil $profilModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->profil = new Profil();
+        $this->profilModel = new Profil();
     }
 
+    /**
+     * Display profile index page
+     */
     public function index()
     {
-        $data['title'] = 'Profil';
-        $data['profil'] = $this->profil->first();
+        $data = [
+            'title' => 'Profil',
+            'profil' => $this->profilModel->first()
+        ];
         return view('backend/profil/index', $data);
     }
 
-    public function save()
+    /**
+     * Get profile validation rules
+     */
+    private function getProfileValidationRules(): array
     {
-
-        // $rules = $this->validate([
-        //     'nama' => 'required',
-        //     'visi' => 'required',
-        //     'misi' => 'required',
-        //     'motto' => 'required',
-        //     'alamat' => 'required',
-        //     'telepon' => 'required',
-        //     'fax' => 'required',
-        //     'email' => 'required|valid_email',
-        //     'gambar' => 'uploaded[gambar]|max_size[gambar,1024]|is_image[gambar]|mime_in[gambar,image/jpg,image/jpeg,image/png]'
-        // ]);
-
-        // $validation =  \Config\Services::validation();
-
-
-        // if (!$rules) {
-        //     session()->setFlashData([
-        //         'error_nama' => $validation->getError('nama'),
-        //         'error_visi' => $validation->getError('visi'),
-        //         'error_misi' => $validation->getError('misi'),
-        //         'error_motto' => $validation->getError('motto'),
-        //         'error_alamat' => $validation->getError('alamat'),
-        //         'error_telepon' => $validation->getError('telepon'),
-        //         'error_fax' => $validation->getError('fax'),
-        //         'error_email' => $validation->getError('email'),
-        //     ]);
-        //     return redirect()->back()->withInput();
-        // }
-
-        // Mendapatkan data input yang telah divalidasi
-        $data = [
-            'nama' => $this->request->getPost('nama'),
-            'visi' => $this->request->getPost('visi'),
-            'misi' => $this->request->getPost('misi'),
-            'motto' => $this->request->getPost('motto'),
-            'alamat' => $this->request->getPost('alamat'),
-            'telepon' => $this->request->getPost('telepon'),
-            'fax' => $this->request->getPost('fax'),
-            'email' => $this->request->getPost('email'),
-            'tugas' => $this->request->getPost('tugas'),
+        return [
+            'nama' => [
+                'label' => 'Nama Rumah Sakit',
+                'rules' => 'required|min_length[3]|max_length[100]',
+                'errors' => [
+                    'required' => 'Nama rumah sakit harus diisi',
+                    'min_length' => 'Nama minimal 3 karakter',
+                    'max_length' => 'Nama maksimal 100 karakter'
+                ]
+            ],
+            'visi' => [
+                'label' => 'Visi',
+                'rules' => 'required|min_length[10]',
+                'errors' => [
+                    'required' => 'Visi harus diisi',
+                    'min_length' => 'Visi minimal 10 karakter'
+                ]
+            ],
+            'misi' => [
+                'label' => 'Misi',
+                'rules' => 'required|min_length[10]',
+                'errors' => [
+                    'required' => 'Misi harus diisi',
+                    'min_length' => 'Misi minimal 10 karakter'
+                ]
+            ],
+            'motto' => [
+                'label' => 'Motto',
+                'rules' => 'required|min_length[5]|max_length[200]',
+                'errors' => [
+                    'required' => 'Motto harus diisi',
+                    'min_length' => 'Motto minimal 5 karakter',
+                    'max_length' => 'Motto maksimal 200 karakter'
+                ]
+            ],
+            'alamat' => [
+                'label' => 'Alamat',
+                'rules' => 'required|min_length[10]|max_length[255]',
+                'errors' => [
+                    'required' => 'Alamat harus diisi',
+                    'min_length' => 'Alamat minimal 10 karakter',
+                    'max_length' => 'Alamat maksimal 255 karakter'
+                ]
+            ],
+            'telepon' => [
+                'label' => 'Telepon',
+                'rules' => 'required|numeric|min_length[10]|max_length[15]',
+                'errors' => [
+                    'required' => 'Telepon harus diisi',
+                    'numeric' => 'Telepon harus berupa angka',
+                    'min_length' => 'Telepon minimal 10 digit',
+                    'max_length' => 'Telepon maksimal 15 digit'
+                ]
+            ],
+            'fax' => [
+                'label' => 'Fax',
+                'rules' => 'required|numeric|min_length[10]|max_length[15]',
+                'errors' => [
+                    'required' => 'Fax harus diisi',
+                    'numeric' => 'Fax harus berupa angka',
+                    'min_length' => 'Fax minimal 10 digit',
+                    'max_length' => 'Fax maksimal 15 digit'
+                ]
+            ],
+            'email' => [
+                'label' => 'Email',
+                'rules' => 'required|valid_email|max_length[100]',
+                'errors' => [
+                    'required' => 'Email harus diisi',
+                    'valid_email' => 'Format email tidak valid',
+                    'max_length' => 'Email maksimal 100 karakter'
+                ]
+            ],
+            'tugas' => [
+                'label' => 'Tugas Pokok',
+                'rules' => 'required|min_length[10]',
+                'errors' => [
+                    'required' => 'Tugas pokok harus diisi',
+                    'min_length' => 'Tugas pokok minimal 10 karakter'
+                ]
+            ],
+            'gambar' => [
+                'label' => 'Logo',
+                'rules' => 'max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'max_size' => 'Ukuran logo maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format logo harus JPEG, PNG atau JPG'
+                ]
+            ]
         ];
+    }
 
-        // Tangani file upload jika ada
+    /**
+     * Process image upload
+     */
+    private function processImageUpload(): ?string
+    {
         $fileFoto = $this->request->getFile('gambar');
+        
         if ($fileFoto->isValid() && !$fileFoto->hasMoved()) {
-            $idProfil = $this->request->getPost('idprofil');
-
-            // Jika ada ID, cari profil lama dan hapus gambar lama jika ada
-            if ($idProfil) {
-                $profil = $this->profil->find($idProfil);
-                if ($profil && $profil['gambar']) {
-                    $oldFotoPath = FCPATH . 'profil/' . $profil['gambar'];
-                    if (file_exists($oldFotoPath)) {
-                        unlink($oldFotoPath);
-                    }
-                }
-            }
-
-            // Simpan gambar baru
             $newFotoName = 'Profil_' . $fileFoto->getRandomName();
             $fileFoto->move(FCPATH . 'profil', $newFotoName);
-            $data['gambar'] = $newFotoName;
+            
+            // Optimize image
+            optimizeImageForWeb('profil/' . $newFotoName, [
+                'width' => 300,
+                'height' => 300,
+                'quality' => 85
+            ]);
+            
+            return $newFotoName;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Delete old image
+     */
+    private function deleteOldImage(string $imagePath): void
+    {
+        if ($imagePath && file_exists(FCPATH . 'profil/' . $imagePath)) {
+            $this->deleteFile('profil/' . $imagePath);
+        }
+    }
+
+    /**
+     * Save or update profile
+     */
+    public function save()
+    {
+        $data = $this->getFormData([
+            'idprofil', 'nama', 'visi', 'misi', 'motto', 'alamat', 
+            'telepon', 'fax', 'email', 'tugas'
+        ]);
+
+        $rules = $this->getProfileValidationRules();
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'nama', 'visi', 'misi', 'motto', 'alamat', 
+                'telepon', 'fax', 'email', 'tugas', 'gambar'
+            ]);
         }
 
+        $profileData = [
+            'nama' => $data['nama'],
+            'visi' => $data['visi'],
+            'misi' => $data['misi'],
+            'motto' => $data['motto'],
+            'alamat' => $data['alamat'],
+            'telepon' => $data['telepon'],
+            'fax' => $data['fax'],
+            'email' => $data['email'],
+            'tugas' => $data['tugas'],
+        ];
 
-        // Periksa apakah ada ID
-        $id = $this->request->getPost('idprofil');
-        if ($id) {
-            // Jika ID ada, update data
-            $this->profil->update($id, $data);
+        // Handle image upload
+        $newImage = $this->processImageUpload();
+        if ($newImage) {
+            // Delete old image if updating
+            if ($data['idprofil']) {
+                $existingProfil = $this->profilModel->find($data['idprofil']);
+                if ($existingProfil && $existingProfil['gambar']) {
+                    $this->deleteOldImage($existingProfil['gambar']);
+                }
+            }
+            $profileData['gambar'] = $newImage;
+        }
+
+        // Save or update profile
+        if ($data['idprofil']) {
+            $this->profilModel->update($data['idprofil'], $profileData);
         } else {
-            // Jika ID tidak ada, buat data baru
-            $this->profil->insert($data);
+            $this->profilModel->insert($profileData);
         }
 
-        session()->setFlashdata('success', 'Data Profil Berhasil Di Update');
-        return redirect()->to('/profils');
+        return $this->setSuccessMessage('Data Profil Berhasil Di Update', '/profils');
     }
 }

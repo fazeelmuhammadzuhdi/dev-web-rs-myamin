@@ -12,113 +12,153 @@ use App\Models\Spesialis;
 use App\Models\User;
 use App\Models\Video;
 
+/**
+ * HomeController handles backend dashboard functionality
+ * 
+ * This controller manages dashboard statistics, charts, and user account management
+ * with comprehensive data visualization and analytics.
+ */
 class HomeController extends BaseController
 {
-    protected $pagevisit;
-    protected $berita;
-    protected $dokter;
-    protected $spesialis;
-    protected $poliklinik;
-    protected $video;
-    protected $voting;
-    protected $user;
+    // Model instances
+    private PageVisit $pageVisitModel;
+    private Berita $beritaModel;
+    private Dokter $dokterModel;
+    private Spesialis $spesialisModel;
+    private Poli $poliModel;
+    private Video $videoModel;
+    private PollVote $pollVoteModel;
+    private User $userModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->pagevisit = new PageVisit();
-        $this->berita = new Berita();
-        $this->dokter = new Dokter();
-        $this->spesialis = new Spesialis();
-        $this->poliklinik = new Poli();
-        $this->video = new Video();
-        $this->voting = new PollVote();
-        $this->user = new User();
+        $this->pageVisitModel = new PageVisit();
+        $this->beritaModel = new Berita();
+        $this->dokterModel = new Dokter();
+        $this->spesialisModel = new Spesialis();
+        $this->poliModel = new Poli();
+        $this->videoModel = new Video();
+        $this->pollVoteModel = new PollVote();
+        $this->userModel = new User();
     }
 
-
-
-    private function bulan_indonesia($bulan)
+    /**
+     * Convert month number to Indonesian month name
+     */
+    private function bulan_indonesia(int $bulan): string
     {
-        switch ($bulan) {
-            case 1:
-                return 'Januari';
-            case 2:
-                return 'Februari';
-            case 3:
-                return 'Maret';
-            case 4:
-                return 'April';
-            case 5:
-                return 'Mei';
-            case 6:
-                return 'Juni';
-            case 7:
-                return 'Juli';
-            case 8:
-                return 'Agustus';
-            case 9:
-                return 'September';
-            case 10:
-                return 'Oktober';
-            case 11:
-                return 'November';
-            case 12:
-                return 'Desember';
-            default:
-                return '';
-        }
-    }
-
-    private function getRandomColor($opacity = 0.5)
-    {
-        // Palet warna yang lebih terang dan bervariasi
-        $colors = [
-            'rgba(2, 0, 113, 0.8)',    // Merah muda terang
-            'rgba(45, 0, 128, 0.8)',     // Biru terang
-            'rgba(255, 0, 0, 0.8)',     // Kuning terang
-            'rgba(255, 255, 0, 0.8)',     // Hijau kebiruan terang
-            'rgba(0, 255, 64, 1)',     // Oranye terang
-            'rgba(22, 105, 67, 0.81)',    // Abu-abu terang
-            'rgba(7, 179, 174, 0.81)',    // Merah jambu terang
-            'rgba(58, 1, 105, 0.81)',      // Coklat terang
-            'rgba(255, 0, 0, 0.5)',        // Merah terang
-            'rgba(0, 0, 255, 0.5)',
-            'rgba(1, 140, 131, 0.98)',
-            'rgba(255, 140, 0, 0.98)',
-            'rgba(255, 15, 0, 0.98)',
-            'rgba(86, 5, 21, 0.79)',
+        $months = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
         ];
 
-        // Mengacak warna dari palet
-        $randomIndex = array_rand($colors);
-        return $colors[$randomIndex];
+        return $months[$bulan] ?? '';
     }
 
-    public function index(): string
+    /**
+     * Get random color for charts
+     */
+    private function getRandomColor(float $opacity = 0.5): string
     {
-        // Ambil jumlah berita berdasarkan kategori
-        $kategoriBerita = $this->berita
+        $colors = [
+            'rgba(2, 0, 113, ' . $opacity . ')',
+            'rgba(45, 0, 128, ' . $opacity . ')',
+            'rgba(255, 0, 0, ' . $opacity . ')',
+            'rgba(255, 255, 0, ' . $opacity . ')',
+            'rgba(0, 255, 64, ' . $opacity . ')',
+            'rgba(22, 105, 67, ' . $opacity . ')',
+            'rgba(7, 179, 174, ' . $opacity . ')',
+            'rgba(58, 1, 105, ' . $opacity . ')',
+            'rgba(255, 0, 0, ' . $opacity . ')',
+            'rgba(0, 0, 255, ' . $opacity . ')',
+            'rgba(1, 140, 131, ' . $opacity . ')',
+            'rgba(255, 140, 0, ' . $opacity . ')',
+            'rgba(255, 15, 0, ' . $opacity . ')',
+            'rgba(86, 5, 21, ' . $opacity . ')',
+        ];
+
+        return $colors[array_rand($colors)];
+    }
+
+    /**
+     * Get dashboard statistics
+     */
+    private function getDashboardStats(): array
+    {
+        return [
+            'dokter' => $this->dokterModel->where('status', 'Y')->countAllResults(),
+            'spesialis' => $this->spesialisModel->where('status', 'Y')->countAllResults(),
+            'poliklinik' => $this->poliModel->where('status', 'Y')->countAllResults(),
+            'video' => $this->videoModel->where('status', 'PB')->countAllResults(),
+        ];
+    }
+
+    /**
+     * Get news data by category
+     */
+    private function getNewsByCategory(): array
+    {
+        return $this->beritaModel
             ->select('kategori.title as kategori_title, COUNT(berita.kategori_id) as jumlah')
             ->join('kategori', 'kategori.idkategori = berita.kategori_id')
             ->groupBy('kategori.idkategori')
             ->findAll();
+    }
 
-        // dd($kategoriBerita);
-        // Kirim data ke view
+    /**
+     * Get monthly visits data
+     */
+    private function getMonthlyVisitsData(): array
+    {
+        $monthlyVisits = $this->pageVisitModel->getMonthlyVisits();
+        
+        $labels = [];
+        $counts = [];
 
-        $dokter = $this->dokter->where('status', 'Y')->countAllResults();
-        $spesialis = $this->spesialis->where('status', 'Y')->countAllResults();
-        $poliklinik = $this->poliklinik->where('status', 'Y')->countAllResults();
-        $video = $this->video->where('status', 'PB')->countAllResults();
+        foreach ($monthlyVisits as $visit) {
+            $labels[] = $this->bulan_indonesia($visit['bulan']);
+            $counts[] = $visit['total_visits'];
+        }
 
-        // Memanggil model untuk data pengunjung per bulan
-        $monthlyVisits = $this->pagevisit->getMonthlyVisits();
+        return [
+            'labels' => $labels,
+            'counts' => $counts,
+            'rawData' => $monthlyVisits
+        ];
+    }
 
-        //voting per bulan 
-        $monthlyVoting = $this->voting->getMonthlyVoting();
+    /**
+     * Get monthly voting data
+     */
+    private function getMonthlyVotingData(): array
+    {
+        $monthlyVoting = $this->pollVoteModel->getMonthlyVoting();
+        
+        $labels = [];
+        $counts = [];
 
-        $monthlyPosts = $this->berita->getGrafikBerita();
+        foreach ($monthlyVoting as $vote) {
+            $labels[] = $this->bulan_indonesia($vote['bulan']);
+            $counts[] = $vote['total_votes'];
+        }
 
+        return [
+            'labels' => $labels,
+            'counts' => $counts
+        ];
+    }
+
+    /**
+     * Get news chart data
+     */
+    private function getNewsChartData(): array
+    {
+        $monthlyPosts = $this->beritaModel->getGrafikBerita();
+        
         $dataByCategory = [];
         $allMonths = [];
 
@@ -139,10 +179,10 @@ class HomeController extends BaseController
 
         sort($allMonths);
 
-        // Mengubah angka bulan menjadi nama bulan dalam bahasa Indonesia
+        // Convert month numbers to Indonesian month names
         $bulanIndo = array_map([$this, 'bulan_indonesia'], $allMonths);
 
-        // Membuat struktur data untuk Chart.js
+        // Create datasets for Chart.js
         $datasets = [];
         foreach ($dataByCategory as $kategori => $data) {
             $dataPoints = [];
@@ -158,176 +198,139 @@ class HomeController extends BaseController
             ];
         }
 
-        // $monthlyPosts = $this->berita->getGrafikBerita();
+        return [
+            'labels' => $bulanIndo,
+            'datasets' => $datasets
+        ];
+    }
 
-        // // dd($monthlyPosts);
-
-        // $dataByCategory = [];
-        // $allMonths = [];
-
-        // foreach ($monthlyPosts as $post) {
-        //     $bulan = $post['bulan'];
-        //     $kategori = $post['kategori'];
-        //     $jumlah = $post['jumlah'];
-
-        //     if (!isset($dataByCategory[$kategori])) {
-        //         $dataByCategory[$kategori] = [];
-        //     }
-        //     $dataByCategory[$kategori][$bulan] = $jumlah;
-
-        //     if (!in_array($bulan, $allMonths)) {
-        //         $allMonths[] = $bulan;
-        //     }
-        // }
-
-
-        // sort($allMonths);
-
-        // $datasets = [];
-        // foreach ($dataByCategory as $kategori => $data) {
-        //     $dataPoints = [];
-        //     foreach ($allMonths as $month) {
-        //         $dataPoints[] = isset($data[$month]) ? (int)$data[$month] : 0;
-        //     }
-        //     $datasets[] = [
-        //         'label' => $kategori,
-        //         'data' => $dataPoints,
-        //         'borderColor' => $this->getRandomColor(),
-        //         'backgroundColor' => $this->getRandomColor(0.2),
-        //         'fill' => false
-        //     ];
-        // }
-
-        // Debugging data
-        // dd($dataByCategory, $allMonths, $datasets);
-
-
-
-        $labelsVoting = [];
-        $countsVoting = [];
-
-        // Mengisi data labels dan counts untuk chart
-        foreach ($monthlyVoting as $vote) {
-            $bulan = $this->bulan_indonesia($vote['bulan']);
-            $labelsVoting[] = $bulan;
-            $countsVoting[] = $vote['total_votes'];
-        }
-
-
-        // Memanggil model untuk jumlah pengunjung hari ini
-        $dailyVisitsToday = $this->pagevisit->getDailyVisitsToday();
-        // dd($monthlyVisits);
-
-        $labels = [];
-        $counts = [];
-
-        // Mengisi data labels dan counts untuk chart
-        foreach ($monthlyVisits as $visit) {
-            $bulan = $this->bulan_indonesia($visit['bulan']);
-            $labels[] = $bulan;
-            $counts[] = $visit['total_visits'];
-        }
+    /**
+     * Display dashboard
+     */
+    public function index(): string
+    {
+        $stats = $this->getDashboardStats();
+        $kategoriBerita = $this->getNewsByCategory();
+        $visitsData = $this->getMonthlyVisitsData();
+        $votingData = $this->getMonthlyVotingData();
+        $newsData = $this->getNewsChartData();
 
         $data = [
             'kategoriBerita' => $kategoriBerita,
-            'dokter' => $dokter,
-            'spesialis' => $spesialis,
-            'poliklinik' => $poliklinik,
-            'video' => $video,
-            'labelsVisit' => $labels,
-            'countVisit' => $counts,
-            'monthlyVisits' => $monthlyVisits,
-            'dailyVisitsToday' => $dailyVisitsToday,
-            'labelsVoting' => $labelsVoting,
-            'countsVoting' => $countsVoting,
-            'labelsBerita' => $bulanIndo,
-            'datasetsBerita' => $datasets,
+            'dokter' => $stats['dokter'],
+            'spesialis' => $stats['spesialis'],
+            'poliklinik' => $stats['poliklinik'],
+            'video' => $stats['video'],
+            'labelsVisit' => $visitsData['labels'],
+            'countVisit' => $visitsData['counts'],
+            'monthlyVisits' => $visitsData['rawData'],
+            'dailyVisitsToday' => $this->pageVisitModel->getDailyVisitsToday(),
+            'labelsVoting' => $votingData['labels'],
+            'countsVoting' => $votingData['counts'],
+            'labelsBerita' => $newsData['labels'],
+            'datasetsBerita' => $newsData['datasets'],
         ];
-
 
         return view('backend/main/home', $data);
     }
 
-
-    public function myAccount()
+    /**
+     * Display user account page
+     */
+    public function myAccount(): string
     {
         $data = [
-            'user' => $this->user->where('iduser', session()->get('idUser'))->first(),
+            'user' => $this->userModel->where('iduser', session()->get('idUser'))->first(),
             'title' => 'My Account'
         ];
-        // dd($data);
 
         return view('backend/main/myaccount', $data);
     }
 
-    public function saveAccount()
+    /**
+     * Get account validation rules
+     */
+    private function getAccountValidationRules(): array
     {
-        $nama = $this->request->getPost('nama');
-        $username = $this->request->getPost('username');
-        $password = $this->request->getPost('password');
-        $confirmpassword = $this->request->getPost('confirmpassword');
-
-
-        // Persiapkan data dasar
-        $data = [
-            'nama' => $nama,
-            'username' => $username,
+        return [
+            'nama' => [
+                'label' => 'Nama',
+                'rules' => 'required|min_length[3]|max_length[100]',
+                'errors' => [
+                    'required' => 'Nama harus diisi',
+                    'min_length' => 'Nama minimal 3 karakter',
+                    'max_length' => 'Nama maksimal 100 karakter'
+                ]
+            ],
+            'username' => [
+                'label' => 'Username',
+                'rules' => 'required|min_length[3]|max_length[50]',
+                'errors' => [
+                    'required' => 'Username harus diisi',
+                    'min_length' => 'Username minimal 3 karakter',
+                    'max_length' => 'Username maksimal 50 karakter'
+                ]
+            ]
         ];
-
-        // Jika password dan konfirmasi password diisi, lakukan validasi
-        if (!empty($password) || !empty($confirmpassword)) {
-            // Validasi kata sandi
-            if (!$this->isValidPassword($password)) {
-                session()->setFlashdata('error_password', 'Password tidak valid. Pastikan panjang minimal 8 karakter, terdiri dari huruf besar, huruf kecil, simbol, dan angka.');
-                return redirect()->back()->withInput();
-            }
-
-            if ($password !== $confirmpassword) {
-                session()->setFlashdata('error_confirmpassword', 'Password dengan Konfirmasi Password Tidak cocok.');
-                return redirect()->back()->withInput();
-            }
-
-            // Jika validasi berhasil, tambahkan password yang di-hash ke data
-            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
-        }
-
-        // Periksa apakah ada ID
-        $id = $this->request->getPost('id');
-
-        if ($id) {
-            // Jika ID ada, update data
-            $this->user->update($id, $data);
-        } else {
-            // Jika ID tidak ada, buat data baru
-            $this->user->insert($data);
-        }
-
-        session()->setFlashdata('success', 'Data Berhasil Di Update');
-        return redirect()->back();
     }
 
-    private function isValidPassword($password)
+    /**
+     * Validate password strength
+     */
+    private function isValidPassword(string $password): bool
     {
-        // Panjang minimal 8 karakter
+        // Minimum 8 characters
         if (strlen($password) < 8) {
             return false;
         }
 
-        // Kombinasi huruf besar, huruf kecil, simbol, dan angka
-        if (
-            !preg_match('/[A-Z]/', $password) ||
-            !preg_match('/[a-z]/', $password) ||
-            !preg_match('/[0-9]/', $password) ||
-            !preg_match('/[\W_]/', $password)
-        ) {
-            return false;
+        // Must contain uppercase, lowercase, number, and special character
+        return preg_match('/[A-Z]/', $password) &&
+               preg_match('/[a-z]/', $password) &&
+               preg_match('/[0-9]/', $password) &&
+               preg_match('/[\W_]/', $password);
+    }
+
+    /**
+     * Save user account
+     */
+    public function saveAccount()
+    {
+        $data = $this->getFormData(['id', 'nama', 'username', 'password', 'confirmpassword']);
+
+        $rules = $this->getAccountValidationRules();
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['nama', 'username']);
         }
 
-        // // Tidak ada perulangan karakter
-        // if (preg_match('/(.).*\1/', $password)) {
-        //     return false;
-        // }
+        $accountData = [
+            'nama' => $data['nama'],
+            'username' => $data['username'],
+        ];
 
-        return true;
+        // Handle password update if provided
+        if (!empty($data['password']) || !empty($data['confirmpassword'])) {
+            if (!$this->isValidPassword($data['password'])) {
+                session()->setFlashdata('error_password', 'Password tidak valid. Pastikan panjang minimal 8 karakter, terdiri dari huruf besar, huruf kecil, simbol, dan angka.');
+                return redirect()->back()->withInput();
+            }
+
+            if ($data['password'] !== $data['confirmpassword']) {
+                session()->setFlashdata('error_confirmpassword', 'Password dengan Konfirmasi Password Tidak cocok.');
+                return redirect()->back()->withInput();
+            }
+
+            $accountData['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        }
+
+        // Save or update account
+        if ($data['id']) {
+            $this->userModel->update($data['id'], $accountData);
+        } else {
+            $this->userModel->insert($accountData);
+        }
+
+        return $this->setSuccessMessage('Data Berhasil Di Update');
     }
 }
