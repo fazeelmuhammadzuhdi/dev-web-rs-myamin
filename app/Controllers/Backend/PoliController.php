@@ -2,255 +2,331 @@
 
 namespace App\Controllers\Backend;
 
-use DOMDocument;
 use App\Models\Poli;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
 
+/**
+ * PoliController handles clinic management functionality
+ * 
+ * This controller manages clinic creation, editing, deletion, and display
+ * with proper validation, image handling, and status management.
+ */
 class PoliController extends BaseController
 {
-    protected $poli;
+    // Constants for better maintainability
+    private const STATUS_ACTIVE = 'Y';
+    private const STATUS_INACTIVE = 'N';
+    private const MAX_FILE_SIZE = 1024; // 1MB
+    private const ALLOWED_IMAGE_TYPES = 'image/jpeg,image/png,image/jpg';
+    
+    // Model instance
+    private Poli $poliModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->poli = new Poli();
+        $this->poliModel = new Poli();
         helper('slug');
     }
 
+    /**
+     * Display clinic index page
+     */
     public function index()
     {
-        $data['title'] = 'Poli';
-
+        $data = ['title' => 'Poli'];
         return view('backend/poli/index', $data);
     }
 
+    /**
+     * Display clinic creation form
+     */
     public function create()
     {
         return view('backend/poli/create');
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->poli->select('idpoli,nama,keterangan,status,gambar')->orderBy('nama', 'ASC');
-            return DataTable::of($builder)
-                ->edit('status', function ($row) {
-                    if ($row->status == 'Y') {
-                        return '<span class="badge badge-success">Aktif</span>';
-                    } else {
-                        return '<span class="badge badge-warning">Tidak Aktif</span>';
-                    }
-                })
-                ->edit('gambar', function ($row) {
-                    if ($row->gambar !== null) {
-                        return '<img src="' . base_url('polikliniks/' . $row->gambar) . '" width="50" height="50">';
-                    } else {
-                        return '';
-                    }
-                })
-                ->edit('keterangan', function ($row) {
-                    if ($row->keterangan) {
-                        $doc = new DOMDocument();
-                        @$doc->loadHTML($row->keterangan);
-                        return $doc->textContent; // Menghapus tag HTML
-                    }
-                    return '-';
-                })
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" nama="Hapus Data" onclick="hapus(\'' . $row->idpoli . '\',\'' . $row->nama . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" nama="Edit Data" onclick="edit(\'' . $row->idpoli . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->poliModel->select('idpoli,nama,keterangan,status,gambar')->orderBy('nama', 'ASC');
+        
+        return DataTable::of($builder)
+            ->edit('status', function ($row) {
+                return $this->formatStatusBadge($row->status);
+            })
+            ->edit('gambar', function ($row) {
+                return $this->formatImageColumn($row->gambar);
+            })
+            ->edit('keterangan', function ($row) {
+                return $this->formatDescriptionColumn($row->keterangan);
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idpoli, $row->nama);
+            }, 'last')
+            ->toJson();
     }
 
-
-    public function save()
+    /**
+     * Format status badge
+     */
+    private function formatStatusBadge(string $status): string
     {
-        $nama = $this->request->getVar('nama');
-        $status = $this->request->getVar('status');
-        $keterangan = $this->request->getVar('keterangan');
+        if ($status === self::STATUS_ACTIVE) {
+            return '<span class="badge badge-success">Aktif</span>';
+        }
+        
+        return '<span class="badge badge-warning">Tidak Aktif</span>';
+    }
 
-        $rules = $this->validate([
+    /**
+     * Format image column
+     */
+    private function formatImageColumn(?string $gambar): string
+    {
+        if ($gambar !== null) {
+            $altText = generateAltText($gambar, 'Poli');
+            return generateImageWithFallback('polikliniks/' . $gambar, $altText, [
+                'width' => 50,
+                'height' => 50,
+                'class' => 'img-thumbnail'
+            ]);
+        }
+        
+        return '';
+    }
 
+    /**
+     * Format description column
+     */
+    private function formatDescriptionColumn(?string $keterangan): string
+    {
+        if ($keterangan) {
+            // Strip HTML tags and limit length
+            $text = strip_tags($keterangan);
+            return strlen($text) > 100 ? substr($text, 0, 100) . '...' : $text;
+        }
+        
+        return '-';
+    }
+
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $nama): string
+    {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($nama) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
+
+    /**
+     * Get clinic validation rules
+     */
+    private function getClinicValidationRules(bool $isCreate = true): array
+    {
+        $rules = [
             'nama' => [
                 'label' => 'Nama Poli',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Nama poli harus diisi',
+                    'min_length' => 'Nama minimal 3 karakter',
+                    'max_length' => 'Nama maksimal 100 karakter'
                 ]
             ],
-
             'keterangan' => [
                 'label' => 'Keterangan Poli',
-                'rules' => 'required',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Keterangan poli harus diisi',
+                    'min_length' => 'Keterangan minimal 10 karakter'
                 ]
-            ],
+            ]
+        ];
 
-            'gambar' => [
+        if ($isCreate) {
+            $rules['gambar'] = [
                 'label' => 'Gambar Poli',
-                'rules' => 'uploaded[gambar]|max_size[gambar,1024]|mime_in[gambar,image/jpeg,image/png,image/jpg]',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
                 'errors' => [
-                    'uploaded' => '{field} tidak boleh kosong',
-                    'max_size' => 'Ukuran {field} maksimum 1MB',
-                    'mime_in' => 'Format {field} harus JPEG ,PNG atau JPG'
+                    'uploaded' => 'Gambar poli harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
                 ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_nama' => $validation->getError('nama'),
-                'error_keterangan' => $validation->getError('keterangan'),
-            ]);
-            return redirect()->back()->withInput();
+            ];
         } else {
-            $fileFoto = $this->request->getFile('gambar');
-
-            $namaFoto = $fileFoto->getRandomName();
-            $fileFoto->move(FCPATH . 'polikliniks', $namaFoto);
-
-            $this->poli->insert([
-                'nama' => $nama,
-                'keterangan' => $keterangan,
-                'status' => $status ? $status : 'Y',
-                'created_at' => date('Y-m-d H:i:s'),
-                'slug' => createSlug($nama),
-                'gambar' => $namaFoto,
-            ]);
-
-            session()->setFlashdata('success', 'Data Poli Berhasil Di Tambahkan');
-            return redirect()->to('/poly');
+            $rules['gambar'] = [
+                'label' => 'Gambar Poli',
+                'rules' => 'max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
+                ]
+            ];
         }
+
+        return $rules;
     }
 
+    /**
+     * Process image upload
+     */
+    private function processImageUpload(): string
+    {
+        $fileFoto = $this->request->getFile('gambar');
+        $namaFoto = $fileFoto->getRandomName();
+        
+        // Move file to destination
+        $fileFoto->move(FCPATH . 'polikliniks', $namaFoto);
+        
+        // Optimize image
+        optimizeImageForWeb('polikliniks/' . $namaFoto, [
+            'width' => 300,
+            'height' => 200,
+            'quality' => 85
+        ]);
+        
+        return $namaFoto;
+    }
+
+    /**
+     * Save new clinic
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['nama', 'status', 'keterangan']);
+
+        $rules = $this->getClinicValidationRules(true);
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['nama', 'keterangan', 'gambar']);
+        }
+
+        $namaFoto = $this->processImageUpload();
+
+        $this->poliModel->insert([
+            'nama' => $data['nama'],
+            'keterangan' => $data['keterangan'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'slug' => createSlug($data['nama']),
+            'gambar' => $namaFoto,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->setSuccessMessage('Data Poli Berhasil Ditambahkan', '/poly');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['poli'] = $this->poli->find($id);
+        $data = ['poli' => $this->poliModel->find($id)];
         return view('backend/poli/edit', $data);
     }
 
-    public function update()
+    /**
+     * Delete old images
+     */
+    private function deleteOldImages(string $imagePath): void
     {
-
-        $idPoli = $this->request->getVar('idpoli');
-        $nama = $this->request->getVar('nama');
-        $status = $this->request->getVar('status');
-        $gambar = $this->request->getFile('gambar');
-        $keterangan = $this->request->getVar('keterangan');
-
-        $rules = [
-
-            'nama' => [
-                'label' => 'Nama Poli',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'keterangan' => [
-                'label' => 'Keterangan Poli',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-        ];
-
-        if ($gambar->isValid() && !$gambar->hasMoved()) {
-            // Validasi gambar
-            $rules['gambar'] = 'uploaded[gambar]|mime_in[gambar,image/jpeg,image/png]|max_size[gambar,1024]';
-        }
-
-        $validation = \Config\Services::validation();
-        $isValid = $validation->withRequest($this->request)->setRules($rules)->run();
-
-        if (!$isValid) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_nama' => $validation->getError('nama'),
-                'error_keterangan' => $validation->getError('keterangan'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-
-
-
-            // Menghapus foto lama jika ada foto baru diunggah
-            if ($gambar->isValid() && !$gambar->hasMoved()) {
-                $poli = $this->poli->find($idPoli);
-                if ($poli['gambar'] !== null) {
-                    $oldFotoPath = FCPATH . 'polikliniks/' . $poli['gambar'];
-                    if (file_exists($oldFotoPath)) {
-                        unlink($oldFotoPath);
-                    }
-                }
-
-                $newFotoName = $gambar->getRandomName();
-                $gambar->move(FCPATH . 'polikliniks', $newFotoName);
-
-                // Update data poli dengan foto baru
-                $this->poli->update($idPoli, [
-                    'nama' => $nama,
-                    'keterangan' => $keterangan,
-                    'status' => $status ? $status : 'Y',
-                    'slug' => createSlug($nama),
-
-                    'gambar' => $newFotoName,
-                ]);
-            } else {
-                // Jika tidak ada foto baru diunggah, update data poli tanpa foto
-                $this->poli->update($idPoli, [
-                    'nama' => $nama,
-                    'keterangan' => $keterangan,
-                    'slug' => createSlug($nama),
-
-                    'status' => $status ? $status : 'Y',
-                ]);
-            }
-
-            session()->setFlashdata('success', 'Data Poli Berhasil Di Update');
-            return redirect()->to('/poly');
+        if ($imagePath && file_exists(FCPATH . 'polikliniks/' . $imagePath)) {
+            $this->deleteFile('polikliniks/' . $imagePath);
         }
     }
 
+    /**
+     * Update existing clinic
+     */
+    public function update()
+    {
+        $data = $this->getFormData(['idpoli', 'nama', 'status', 'keterangan']);
+        $idPoli = $data['idpoli'];
+        $gambar = $this->request->getFile('gambar');
+
+        $rules = $this->getClinicValidationRules(false);
+
+        // Add image validation if new image is uploaded
+        if ($gambar->isValid() && !$gambar->hasMoved()) {
+            $rules['gambar'] = [
+                'label' => 'Gambar Poli',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'uploaded' => 'Gambar poli harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG atau JPG'
+                ]
+            ];
+        }
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['nama', 'keterangan', 'gambar']);
+        }
+
+        $updateData = [
+            'nama' => $data['nama'],
+            'keterangan' => $data['keterangan'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'slug' => createSlug($data['nama']),
+        ];
+
+        // Handle image update
+        if ($gambar->isValid() && !$gambar->hasMoved()) {
+            $existingPoli = $this->poliModel->find($idPoli);
+            
+            // Delete old image
+            if ($existingPoli && $existingPoli['gambar']) {
+                $this->deleteOldImages($existingPoli['gambar']);
+            }
+
+            // Process new image
+            $namaFoto = $this->processImageUpload();
+            $updateData['gambar'] = $namaFoto;
+        }
+
+        $this->poliModel->update($idPoli, $updateData);
+
+        return $this->setSuccessMessage('Data Poli Berhasil Di Update', '/poly');
+    }
+
+    /**
+     * Delete clinic
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $cekReferensi = $this->poli->find($id);
-
-            if ($cekReferensi) {
-                // Menghapus foto jika ada
-                if ($cekReferensi['gambar'] !== null) {
-                    $fotoPath = FCPATH . 'polikliniks/' . $cekReferensi['gambar'];
-                    if (file_exists($fotoPath)) {
-                        unlink($fotoPath);
-                    }
-                }
-
-                // Menghapus data dari database
-                $this->poli->delete($id);
-
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $poli = $this->poliModel->find($id);
+
+        if (!$poli) {
+            return $this->jsonError('Data poli tidak ditemukan', 404);
+        }
+
+        // Delete associated image
+        if ($poli['gambar']) {
+            $this->deleteOldImages($poli['gambar']);
+        }
+
+        // Delete from database
+        $this->poliModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }

@@ -2,181 +2,200 @@
 
 namespace App\Controllers\Backend;
 
-use DOMDocument;
 use App\Models\Fasilitas;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
 
+/**
+ * FasilitasController handles facility management functionality
+ * 
+ * This controller manages facility creation, editing, deletion, and display
+ * with proper validation and status management.
+ */
 class FasilitasController extends BaseController
 {
-    protected $fasilitas;
+    // Constants for better maintainability
+    private const STATUS_ACTIVE = 'Y';
+    private const STATUS_INACTIVE = 'N';
+    
+    // Model instance
+    private Fasilitas $fasilitasModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->fasilitas = new Fasilitas();
+        $this->fasilitasModel = new Fasilitas();
     }
 
+    /**
+     * Display facility index page
+     */
     public function index()
     {
-        $data['title'] = 'Fasilitas';
-
+        $data = ['title' => 'Fasilitas'];
         return view('backend/fasilitas/index', $data);
     }
 
+    /**
+     * Display facility creation form
+     */
     public function create()
     {
         return view('backend/fasilitas/create');
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-            $builder = $this->fasilitas->select('idfasilitas,nama,keterangan,status');
-            return DataTable::of($builder)
-                ->edit('keterangan', function ($row) {
-                    if ($row->keterangan) {
-                        $doc = new DOMDocument();
-                        @$doc->loadHTML($row->keterangan);
-                        $text =  $doc->textContent;
-
-                        $text =  limit_words($text, 20);
-
-                        return $text;
-                    }
-                    return '-';
-                })
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" nama="Hapus Data" onclick="hapus(\'' . $row->idfasilitas . '\',\'' . $row->nama . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" nama="Edit Data" onclick="edit(\'' . $row->idfasilitas . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->fasilitasModel->select('idfasilitas,nama,keterangan,status');
+        
+        return DataTable::of($builder)
+            ->edit('keterangan', function ($row) {
+                return $this->formatDescriptionColumn($row->keterangan);
+            })
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idfasilitas, $row->nama);
+            }, 'last')
+            ->toJson();
     }
 
-
-    public function save()
+    /**
+     * Format description column
+     */
+    private function formatDescriptionColumn(?string $keterangan): string
     {
-        $nama = $this->request->getVar('nama');
-        $status = $this->request->getVar('status');
-        $keterangan = $this->request->getVar('keterangan');
+        if ($keterangan) {
+            // Strip HTML tags and limit words
+            $text = strip_tags($keterangan);
+            return limit_words($text, 20);
+        }
+        
+        return '-';
+    }
 
-        $rules = $this->validate([
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $nama): string
+    {
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($nama) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
 
+    /**
+     * Get facility validation rules
+     */
+    private function getFacilityValidationRules(): array
+    {
+        return [
             'nama' => [
                 'label' => 'Nama Fasilitas',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Nama fasilitas harus diisi',
+                    'min_length' => 'Nama minimal 3 karakter',
+                    'max_length' => 'Nama maksimal 100 karakter'
                 ]
             ],
-
             'keterangan' => [
                 'label' => 'Keterangan Fasilitas',
-                'rules' => 'required',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Keterangan fasilitas harus diisi',
+                    'min_length' => 'Keterangan minimal 10 karakter'
                 ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_nama' => $validation->getError('nama'),
-                'error_keterangan' => $validation->getError('keterangan'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $this->fasilitas->insert([
-                'nama' => $nama,
-                'keterangan' => $keterangan,
-                'status' => $status ? $status : 'Y',
-                'created_at' => date('Y-m-d H:i:s'),
-            ]);
-
-            session()->setFlashdata('success', 'Data Fasilitas Berhasil Di Tambahkan');
-            return redirect()->to('/fasilitasumum');
-        }
+            ]
+        ];
     }
 
+    /**
+     * Save new facility
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['nama', 'status', 'keterangan']);
+
+        $rules = $this->getFacilityValidationRules();
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['nama', 'keterangan']);
+        }
+
+        $this->fasilitasModel->insert([
+            'nama' => $data['nama'],
+            'keterangan' => $data['keterangan'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->setSuccessMessage('Data Fasilitas Berhasil Ditambahkan', '/fasilitasumum');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['fasilitas'] = $this->fasilitas->find($id);
+        $data = ['fasilitas' => $this->fasilitasModel->find($id)];
         return view('backend/fasilitas/edit', $data);
     }
 
+    /**
+     * Update existing facility
+     */
     public function update()
     {
+        $data = $this->getFormData(['idfasilitas', 'nama', 'status', 'keterangan']);
+        $idFasilitas = $data['idfasilitas'];
 
-        $idFasilitas = $this->request->getVar('idfasilitas');
-        $nama = $this->request->getVar('nama');
-        $status = $this->request->getVar('status');
-        $keterangan = $this->request->getVar('keterangan');
+        $rules = $this->getFacilityValidationRules();
 
-        $rules = $this->validate([
-
-            'nama' => [
-                'label' => 'Nama Fasilitas',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'keterangan' => [
-                'label' => 'Keterangan Fasilitas',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_nama' => $validation->getError('nama'),
-                'error_keterangan' => $validation->getError('keterangan'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $data = [
-                'nama' => $nama,
-                'keterangan' => $keterangan,
-                'status' => $status ? $status : 'Y',
-            ];
-
-            $this->fasilitas->update($idFasilitas, $data);
-
-            session()->setFlashdata('success', 'Data Fasilitas Berhasil Di Update');
-            return redirect()->to('/fasilitasumum');
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['nama', 'keterangan']);
         }
+
+        $updateData = [
+            'nama' => $data['nama'],
+            'keterangan' => $data['keterangan'],
+            'status' => $data['status'] ?: self::STATUS_ACTIVE,
+        ];
+
+        $this->fasilitasModel->update($idFasilitas, $updateData);
+
+        return $this->setSuccessMessage('Data Fasilitas Berhasil Di Update', '/fasilitasumum');
     }
 
+    /**
+     * Delete facility
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $keterangan = $this->fasilitas->find($id);
-
-            if ($keterangan) {
-                $this->fasilitas->delete($id);
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $fasilitas = $this->fasilitasModel->find($id);
+
+        if (!$fasilitas) {
+            return $this->jsonError('Fasilitas tidak ditemukan', 404);
+        }
+
+        $this->fasilitasModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }

@@ -6,360 +6,282 @@ use App\Models\Rawat;
 use App\Models\TempatTidur;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
-use CodeIgniter\HTTP\ResponseInterface;
 
+/**
+ * TempatTidurController handles bed management functionality
+ * 
+ * This controller manages bed availability tracking for different room classes
+ * with proper validation and relationship management with inpatient care units.
+ */
 class TempatTidurController extends BaseController
 {
-    protected $tempattidur;
-    protected $rawat;
+    // Model instances
+    private TempatTidur $tempatTidurModel;
+    private Rawat $rawatModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->tempattidur = new TempatTidur();
-        $this->rawat = new Rawat();
+        $this->tempatTidurModel = new TempatTidur();
+        $this->rawatModel = new Rawat();
     }
 
+    /**
+     * Display bed management index page
+     */
     public function index()
     {
-        $data['title'] = 'Tempat Tidur';
-
+        $data = ['title' => 'Tempat Tidur'];
         return view('backend/tempattidur/index', $data);
     }
 
+    /**
+     * Display bed management creation form
+     */
     public function create()
     {
-        $data['rawat'] = $this->rawat->findAll();
-
+        $data = ['rawat' => $this->rawatModel->findAll()];
         return view('backend/tempattidur/create', $data);
     }
 
+    /**
+     * Get data for DataTable
+     */
     public function getData()
     {
-        if ($this->request->isAJAX()) {
-
-            $builder = $this->tempattidur->getTempatTidur();
-            // $builder = $this->tempattidur->select('tempat_tidur.idtempattidur,tempat_tidur.vip_isi,tempat_tidur.vip_kosong,tempat_tidur.utama_isi,tempat_tidur.utama_kosong,rawat.nama')
-            //     ->join('rawat', 'rawat.idrawat = tempat_tidur.rawat_id');
-
-
-            return DataTable::of($builder)
-
-                ->add('action', function ($row) {
-                    return  '<div class="d-flex " role="group">
-
-                    <button type="button" class="btn btn-round btn-danger mx-1" nama="Hapus Data" onclick="hapus(\'' . $row->idtempattidur . '\',\'' . $row->vip_isi . '\')">
-                      <i class="feather icon-trash-2"></i>
-                    </button>
-                
-
-                    <button type="button" class="btn btn-round btn-primary" nama="Edit Data" onclick="edit(\'' . $row->idtempattidur . '\')">
-                    <i class="feather icon-edit"></i></button>
-                    </div>';
-                }, 'last')
-                ->toJson();
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $builder = $this->tempatTidurModel->getTempatTidur();
+        
+        return DataTable::of($builder)
+            ->add('action', function ($row) {
+                return $this->formatActionButtons($row->idtempattidur, $row->nama);
+            }, 'last')
+            ->toJson();
     }
 
-
-    public function save()
+    /**
+     * Format action buttons
+     */
+    private function formatActionButtons(int $id, string $nama): string
     {
-        $idrawat = $this->request->getVar('rawat_id');
-        $vip_isi = $this->request->getVar('vip_isi');
-        $vip_kosong = $this->request->getVar('vip_kosong');
-        $utama_isi = $this->request->getVar('utama_isi');
-        $utama_kosong = $this->request->getVar('utama_kosong');
-        $kelas1_isi = $this->request->getVar('kelas1_isi');
-        $kelas1_kosong = $this->request->getVar('kelas1_kosong');
-        $kelas2_isi = $this->request->getVar('kelas2_isi');
-        $kelas2_kosong = $this->request->getVar('kelas2_kosong');
-        $kelas3_isi = $this->request->getVar('kelas3_isi');
-        $kelas3_kosong = $this->request->getVar('kelas3_kosong');
+        return '<div class="d-flex" role="group">
+            <button type="button" class="btn btn-round btn-danger mx-1" title="Hapus Data" onclick="hapus(\'' . $id . '\',\'' . esc($nama) . '\')">
+                <i class="feather icon-trash-2"></i>
+            </button>
+            <button type="button" class="btn btn-round btn-primary" title="Edit Data" onclick="edit(\'' . $id . '\')">
+                <i class="feather icon-edit"></i>
+            </button>
+        </div>';
+    }
 
-        $rules = $this->validate([
+    /**
+     * Get bed management validation rules
+     */
+    private function getBedValidationRules(): array
+    {
+        return [
             'rawat_id' => [
                 'label' => 'Nama Ruangan Rawat',
-                'rules' => 'required',
+                'rules' => 'required|integer',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong'
+                    'required' => 'Nama ruangan rawat harus diisi',
+                    'integer' => 'ID ruangan rawat harus berupa angka'
                 ]
             ],
-
             'vip_isi' => [
                 'label' => 'Tempat Tidur VIP Isi',
-                'rules' => 'required',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur VIP isi harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
             'vip_kosong' => [
                 'label' => 'Tempat Tidur VIP Kosong',
-                'rules' => 'required',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur VIP kosong harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
-
             'utama_isi' => [
-                'label' => 'Tempat Tidur utama Isi',
-                'rules' => 'required',
+                'label' => 'Tempat Tidur Utama Isi',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur utama isi harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
             'utama_kosong' => [
-                'label' => 'Tempat Tidur utama Kosong',
-                'rules' => 'required',
+                'label' => 'Tempat Tidur Utama Kosong',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur utama kosong harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
-
             'kelas1_isi' => [
-                'label' => 'Tempat Tidur kelas1 Isi',
-                'rules' => 'required',
+                'label' => 'Tempat Tidur Kelas 1 Isi',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur kelas 1 isi harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
             'kelas1_kosong' => [
-                'label' => 'Tempat Tidur kelas1 Kosong',
-                'rules' => 'required',
+                'label' => 'Tempat Tidur Kelas 1 Kosong',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur kelas 1 kosong harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
-
             'kelas2_isi' => [
-                'label' => 'Tempat Tidur kelas2 Isi',
-                'rules' => 'required',
+                'label' => 'Tempat Tidur Kelas 2 Isi',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur kelas 2 isi harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
             'kelas2_kosong' => [
-                'label' => 'Tempat Tidur kelas2 Kosong',
-                'rules' => 'required',
+                'label' => 'Tempat Tidur Kelas 2 Kosong',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur kelas 2 kosong harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
-
             'kelas3_isi' => [
-                'label' => 'Tempat Tidur kelas3 Isi',
-                'rules' => 'required',
+                'label' => 'Tempat Tidur Kelas 3 Isi',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur kelas 3 isi harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
             ],
             'kelas3_kosong' => [
-                'label' => 'Tempat Tidur kelas3 Kosong',
-                'rules' => 'required',
+                'label' => 'Tempat Tidur Kelas 3 Kosong',
+                'rules' => 'required|integer|greater_than_equal_to[0]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Tempat tidur kelas 3 kosong harus diisi',
+                    'integer' => 'Jumlah harus berupa angka',
+                    'greater_than_equal_to' => 'Jumlah tidak boleh negatif'
                 ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_rawat_id' => $validation->getError('rawat_id'),
-                'error_vip_isi' => $validation->getError('vip_isi'),
-                'error_vip_kosong' => $validation->getError('vip_kosong'),
-                'error_utama_isi' => $validation->getError('utama_isi'),
-                'error_utama_kosong' => $validation->getError('utama_kosong'),
-                'error_kelas1_isi' => $validation->getError('kelas1_isi'),
-                'error_kelas1_kosong' => $validation->getError('kelas1_kosong'),
-                'error_kelas2_isi' => $validation->getError('kelas2_isi'),
-                'error_kelas2_kosong' => $validation->getError('kelas2_kosong'),
-                'error_kelas3_isi' => $validation->getError('kelas3_isi'),
-                'error_kelas3_kosong' => $validation->getError('kelas3_kosong'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $this->tempattidur->insert([
-                'rawat_id' => $idrawat,
-                'vip_isi' => $vip_isi,
-                'vip_kosong' => $vip_kosong,
-                'utama_isi' => $utama_isi,
-                'utama_kosong' => $utama_kosong,
-                'kelas1_isi' => $kelas1_isi,
-                'kelas1_kosong' => $kelas1_kosong,
-                'kelas2_isi' => $kelas2_isi,
-                'kelas2_kosong' => $kelas2_kosong,
-                'kelas3_isi' => $kelas3_isi,
-                'kelas3_kosong' => $kelas3_kosong,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]);
-
-            session()->setFlashdata('success', 'Data Tempattidur Berhasil Di Tambahkan');
-            return redirect()->to('/tempattidur');
-        }
+            ]
+        ];
     }
 
+    /**
+     * Get bed data from form
+     */
+    private function getBedData(): array
+    {
+        return $this->getFormData([
+            'rawat_id', 'vip_isi', 'vip_kosong', 'utama_isi', 'utama_kosong',
+            'kelas1_isi', 'kelas1_kosong', 'kelas2_isi', 'kelas2_kosong',
+            'kelas3_isi', 'kelas3_kosong'
+        ]);
+    }
+
+    /**
+     * Save new bed data
+     */
+    public function save()
+    {
+        $data = $this->getBedData();
+
+        $rules = $this->getBedValidationRules();
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'rawat_id', 'vip_isi', 'vip_kosong', 'utama_isi', 'utama_kosong',
+                'kelas1_isi', 'kelas1_kosong', 'kelas2_isi', 'kelas2_kosong',
+                'kelas3_isi', 'kelas3_kosong'
+            ]);
+        }
+
+        $insertData = array_merge($data, [
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ]);
+
+        $this->tempatTidurModel->insert($insertData);
+
+        return $this->setSuccessMessage('Data Tempat Tidur Berhasil Ditambahkan', '/tempattidur');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['rawat'] = $this->rawat->findAll();
-        $data['tempattidur'] = $this->tempattidur->find($id);
+        $data = [
+            'rawat' => $this->rawatModel->findAll(),
+            'tempattidur' => $this->tempatTidurModel->find($id)
+        ];
         return view('backend/tempattidur/edit', $data);
     }
 
+    /**
+     * Update existing bed data
+     */
     public function update()
     {
+        $data = $this->getFormData(['idtempattidur']);
+        $idTempatTidur = $data['idtempattidur'];
+        $bedData = $this->getBedData();
 
-        $idTempatTidur = $this->request->getVar('idtempattidur');
-        $idrawat = $this->request->getVar('rawat_id');
-        $vip_isi = $this->request->getVar('vip_isi');
-        $vip_kosong = $this->request->getVar('vip_kosong');
-        $utama_isi = $this->request->getVar('utama_isi');
-        $utama_kosong = $this->request->getVar('utama_kosong');
-        $kelas1_isi = $this->request->getVar('kelas1_isi');
-        $kelas1_kosong = $this->request->getVar('kelas1_kosong');
-        $kelas2_isi = $this->request->getVar('kelas2_isi');
-        $kelas2_kosong = $this->request->getVar('kelas2_kosong');
-        $kelas3_isi = $this->request->getVar('kelas3_isi');
-        $kelas3_kosong = $this->request->getVar('kelas3_kosong');
+        $rules = $this->getBedValidationRules();
 
-        $rules = $this->validate([
-            'rawat_id' => [
-                'label' => 'Nama Ruangan Rawat',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong'
-                ]
-            ],
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors([
+                'rawat_id', 'vip_isi', 'vip_kosong', 'utama_isi', 'utama_kosong',
+                'kelas1_isi', 'kelas1_kosong', 'kelas2_isi', 'kelas2_kosong',
+                'kelas3_isi', 'kelas3_kosong'
+            ]);
+        }
 
-            'vip_isi' => [
-                'label' => 'Tempat Tidur VIP Isi',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'vip_kosong' => [
-                'label' => 'Tempat Tidur VIP Kosong',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'utama_isi' => [
-                'label' => 'Tempat Tidur utama Isi',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'utama_kosong' => [
-                'label' => 'Tempat Tidur utama Kosong',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'kelas1_isi' => [
-                'label' => 'Tempat Tidur kelas1 Isi',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'kelas1_kosong' => [
-                'label' => 'Tempat Tidur kelas1 Kosong',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'kelas2_isi' => [
-                'label' => 'Tempat Tidur kelas2 Isi',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'kelas2_kosong' => [
-                'label' => 'Tempat Tidur kelas2 Kosong',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
-            'kelas3_isi' => [
-                'label' => 'Tempat Tidur kelas3 Isi',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'kelas3_kosong' => [
-                'label' => 'Tempat Tidur kelas3 Kosong',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-
+        $updateData = array_merge($bedData, [
+            'updated_at' => date('Y-m-d H:i:s')
         ]);
 
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_rawat_id' => $validation->getError('rawat_id'),
-                'error_vip_isi' => $validation->getError('vip_isi'),
-                'error_vip_kosong' => $validation->getError('vip_kosong'),
-                'error_utama_isi' => $validation->getError('utama_isi'),
-                'error_utama_kosong' => $validation->getError('utama_kosong'),
-                'error_kelas1_isi' => $validation->getError('kelas1_isi'),
-                'error_kelas1_kosong' => $validation->getError('kelas1_kosong'),
-                'error_kelas2_isi' => $validation->getError('kelas2_isi'),
-                'error_kelas2_kosong' => $validation->getError('kelas2_kosong'),
-                'error_kelas3_isi' => $validation->getError('kelas3_isi'),
-                'error_kelas3_kosong' => $validation->getError('kelas3_kosong'),
-            ]);
-            return redirect()->back()->withInput();
-        } else {
-            $data = [
-                'rawat_id' => $idrawat,
-                'vip_isi' => $vip_isi,
-                'vip_kosong' => $vip_kosong,
-                'utama_isi' => $utama_isi,
-                'utama_kosong' => $utama_kosong,
-                'kelas1_isi' => $kelas1_isi,
-                'kelas1_kosong' => $kelas1_kosong,
-                'kelas2_isi' => $kelas2_isi,
-                'kelas2_kosong' => $kelas2_kosong,
-                'kelas3_isi' => $kelas3_isi,
-                'kelas3_kosong' => $kelas3_kosong,
-                'updated_at' => date('Y-m-d H:i:s')
-            ];
+        $this->tempatTidurModel->update($idTempatTidur, $updateData);
 
-            $this->tempattidur->update($idTempatTidur, $data);
-
-            session()->setFlashdata('success', 'Data Tempat Tidur Berhasil Di Tambahkan');
-            return redirect()->to('/tempattidur');
-        }
+        return $this->setSuccessMessage('Data Tempat Tidur Berhasil Di Update', '/tempattidur');
     }
 
+    /**
+     * Delete bed data
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $idrawat = $this->tempattidur->find($id);
-
-            if ($idrawat) {
-                $this->tempattidur->delete($id);
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $tempatTidur = $this->tempatTidurModel->find($id);
+
+        if (!$tempatTidur) {
+            return $this->jsonError('Data tempat tidur tidak ditemukan', 404);
+        }
+
+        $this->tempatTidurModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }
