@@ -1,0 +1,165 @@
+/* ----------------------------------------------------------------
+	Custom CSS
+
+	Add all your Custom Styled CSS here for New Styles or
+	Overwriting Default Theme Styles for Better Handling Updates
+-----------------------------------------------------------------*/
+
+.move-bg {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  -webkit-backface-visibility: hidden;
+}
+
+/* img-hover-wraps */
+.img-hover-wrap {
+  -webkit-transition: transform 0.3s ease;
+  -o-transition: transform 0.3s ease;
+  transition: transform 0.3s ease;
+  -moz-transform-style: flat !important;
+  -webkit-backface-visibility: hidden;
+}
+
+.img-hover-wrap:hover {
+  -webkit-transform: scale(1.1);
+  -ms-transform: scale(1.1);
+  -o-transform: scale(1.1);
+  transform: scale(1.1);
+  z-index: 2;
+}
+
+.img-hover-card:after {
+  content: " ";
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5));
+  transition: all 0.3s ease;
+  opacity: 0;
+}
+
+.img-hover-wrap.show-title .img-hover-card:after {
+  opacity: 0.5;
+}
+
+.img-hover-wrap:hover .img-hover-card:after {
+  opacity: 1;
+}
+
+.img-hover-card {
+  position: relative;
+  display: block;
+  will-change: transform;
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 40px transparent;
+}
+
+.img-hover-card img {
+  width: 100%;
+  max-width: 100%;
+  display: block;
+}
+
+.img-hover-card.hover-in {
+  transition: -webkit-transform 0.2s ease-out;
+  transition: transform 0.2s ease-out;
+  transition: transform 0.2s ease-out, -webkit-transform 0.2s ease-out;
+}
+
+.img-hover-card.hover-3d. {
+  z-index: 2;
+}
+
+.img-hover-card.hover-out {
+  transition: -webkit-transform 0.2s ease-in;
+  transition: transform 0.2s ease-in;
+  transition: transform 0.2s ease-in, -webkit-transform 0.2s ease-in;
+}
+
+.img-hover-wrap:hover .img-hover-card {
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+.img-hover-wrap.show-title .img-hover-title,
+.img-hover-wrap.show-title .img-hover-category {
+  -webkit-transform: translateY(0) scale(1);
+  -ms-transform: translateY(0) scale(1);
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.img-hover-wrap.show-title:hover .img-hover-title,
+.img-hover-wrap.show-title:hover .img-hover-category {
+  -webkit-transform: scale(1.106);
+  -ms-transform: scale(1.106);
+  transform: scale(1.106);
+}
+
+.img-hover-wrap:hover .img-hover-title,
+.img-hover-wrap:hover .img-hover-category {
+  -webkit-transform: translateY(0) scale(1);
+  -ms-transform: translateY(0) scale(1);
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+
+.img-hover-detail {
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  top: 40px;
+  bottom: 40px;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+  -webkit-transform: translateZ(40px);
+  transform: translateZ(40px);
+  -webkit-backface-visibility: hidden;
+}
+
+.img-hover-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  transition: 0.4s ease;
+  opacity: 0;
+  -webkit-transform: translateY(40px) scale(0);
+  -ms-transform: translateY(40px) scale(0);
+  transform: translateY(40px) scale(0);
+  will-change: transform;
+}
+
+.img-hover-category {
+  opacity: 0;
+  margin: 0 0 18px;
+  font-family: "Lato";
+  transition: 0.4s ease;
+  transition-delay: 0.1s;
+  -webkit-transform: translateY(40px) scale(0);
+  -ms-transform: translateY(40px) scale(0);
+  transform: translateY(40px) scale(0);
+  will-change: transform;
+}
+
+.img-hover-detail a {
+  color: #fff;
+}
+
+.owl-dots {
+  /* margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important; */
+  display: none;
+}
