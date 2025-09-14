@@ -2,18 +2,31 @@
 
 namespace App\Controllers\Backend;
 
-use DOMDocument;
 use App\Models\Slider;
 use Hermawan\DataTables\DataTable;
 use App\Controllers\BaseController;
 
+/**
+ * SliderController handles slider management functionality
+ * 
+ * This controller manages slider creation, editing, deletion, and display
+ * with proper validation, image handling, and content management.
+ */
 class SliderController extends BaseController
 {
-    protected $slider;
+    // Constants for better maintainability
+    private const MAX_FILE_SIZE = 1024; // 1MB
+    private const ALLOWED_IMAGE_TYPES = 'image/jpeg,image/png,image/jpg,image/webp';
+    
+    // Model instance
+    private Slider $sliderModel;
 
+    /**
+     * Initialize the controller
+     */
     public function __construct()
     {
-        $this->slider = new Slider();
+        $this->sliderModel = new Slider();
     }
 
     public function index()
@@ -68,175 +81,204 @@ class SliderController extends BaseController
     }
 
 
-    public function save()
+    /**
+     * Get slider validation rules
+     */
+    private function getSliderValidationRules(bool $isCreate = true): array
     {
-        $judul = $this->request->getVar('judul');
-        $keterangan = $this->request->getVar('keterangan');
-
-        $rules = $this->validate([
-
+        $rules = [
             'judul' => [
                 'label' => 'Judul Slider',
-                'rules' => 'required',
+                'rules' => 'required|min_length[3]|max_length[100]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Judul slider harus diisi',
+                    'min_length' => 'Judul minimal 3 karakter',
+                    'max_length' => 'Judul maksimal 100 karakter'
                 ]
             ],
             'keterangan' => [
                 'label' => 'Keterangan Slider',
-                'rules' => 'required',
+                'rules' => 'required|min_length[10]',
                 'errors' => [
-                    'required' => '{field} tidak boleh kosong',
+                    'required' => 'Keterangan slider harus diisi',
+                    'min_length' => 'Keterangan minimal 10 karakter'
                 ]
-            ],
-            'gambar' => [
+            ]
+        ];
+
+        if ($isCreate) {
+            $rules['gambar'] = [
                 'label' => 'Gambar Slider',
-                'rules' => 'uploaded[gambar]|max_size[gambar,1024]|mime_in[gambar,image/jpeg,image/png,image/jpg,image/webp]',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
                 'errors' => [
-                    'uploaded' => '{field} tidak boleh kosong',
-                    'max_size' => 'Ukuran {field} maksimum 1MB',
-                    'mime_in' => 'Format {field} harus JPEG ,PNG atau JPG'
+                    'uploaded' => 'Gambar slider harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG, JPG atau WebP'
                 ]
-            ],
-
-        ]);
-
-        if (!$rules) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_judul' => $validation->getError('judul'),
-                'error_keterangan' => $validation->getError('keterangan'),
-                'error_gambar' => $validation->getError('gambar'),
-            ]);
-            return redirect()->back()->withInput();
+            ];
         } else {
-            $fileFoto = $this->request->getFile('gambar');
-
-            $namaFoto = "Slider" . '_' . $fileFoto->getRandomName();
-            // Pindahkan file foto ke folder tujuan (public/slider)
-            // $fileFoto->move(FCPATH . 'slider', $namaFoto);
-            $fileFoto->move(FCPATH . 'slider', $namaFoto);
-
-            $this->slider->insert([
-                'judul' => $judul,
-                'keterangan' => $keterangan,
-                'gambar' => $namaFoto,
-                'thumbnail' => $namaFoto,
-                'created_at' => date('Y-m-d H:i:s'),
-            ]);
-
-            session()->setFlashdata('success', 'Data Slider Berhasil Di Tambahkan');
-            return redirect()->to('/sliders');
+            $rules['gambar'] = [
+                'label' => 'Gambar Slider',
+                'rules' => 'max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG, JPG atau WebP'
+                ]
+            ];
         }
+
+        return $rules;
     }
 
+    /**
+     * Process image upload
+     */
+    private function processImageUpload(): array
+    {
+        $fileFoto = $this->request->getFile('gambar');
+        $namaFoto = "Slider_" . $fileFoto->getRandomName();
+        
+        // Move file to destination
+        $fileFoto->move(FCPATH . 'slider', $namaFoto);
+        
+        // Optimize image
+        $optimizedImage = optimizeImageForWeb('slider/' . $namaFoto, [
+            'width' => 1920,
+            'height' => 800,
+            'quality' => 85,
+            'thumbnail' => true,
+            'thumbnail_width' => 300,
+            'thumbnail_height' => 200
+        ]);
+        
+        return [
+            'gambar' => $namaFoto,
+            'thumbnail' => $namaFoto,
+            'optimized' => $optimizedImage['optimized']
+        ];
+    }
+
+    /**
+     * Save new slider
+     */
+    public function save()
+    {
+        $data = $this->getFormData(['judul', 'keterangan']);
+
+        $rules = $this->getSliderValidationRules(true);
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['judul', 'keterangan', 'gambar']);
+        }
+
+        $imageData = $this->processImageUpload();
+
+        $this->sliderModel->insert([
+            'judul' => $data['judul'],
+            'keterangan' => $data['keterangan'],
+            'gambar' => $imageData['gambar'],
+            'thumbnail' => $imageData['thumbnail'],
+            'created_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return $this->setSuccessMessage('Data Slider Berhasil Ditambahkan', '/sliders');
+    }
+
+    /**
+     * Display edit form
+     */
     public function edit($id = null)
     {
-        $data['sliders'] = $this->slider->find($id);
+        $data = ['sliders' => $this->sliderModel->find($id)];
         return view('backend/slider/edit', $data);
     }
 
-    public function update()
+    /**
+     * Delete old images
+     */
+    private function deleteOldImages(string $imagePath): void
     {
-
-        $idSlider = $this->request->getVar('idslider');
-        $judul = $this->request->getVar('judul');
-        $keterangan = $this->request->getVar('keterangan');
-        $gambar = $this->request->getFile('gambar');
-
-
-        $rules = [
-
-            'judul' => [
-                'label' => 'Judul Slider',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-            'keterangan' => [
-                'label' => 'Keterangan Slider',
-                'rules' => 'required',
-                'errors' => [
-                    'required' => '{field} tidak boleh kosong',
-                ]
-            ],
-        ];
-
-        if ($gambar->isValid() && !$gambar->hasMoved()) {
-            // Validasi gambar
-            $rules['gambar'] = 'uploaded[gambar]|mime_in[gambar,image/jpeg,image/png,image/webp]|max_size[gambar,1024]';
-        }
-
-        $validation = \Config\Services::validation();
-        $isValid = $validation->withRequest($this->request)->setRules($rules)->run();
-
-        if (!$isValid) {
-            $validation = \Config\Services::validation();
-            session()->setFlashData([
-                'error_judul' => $validation->getError('judul'),
-                'error_keterangan' => $validation->getError('keterangan'),
-            ]);
-
-            return redirect()->back()->withInput();
-        } else {
-
-            // Menghapus foto lama jika ada foto baru diunggah
-            if ($gambar->isValid() && !$gambar->hasMoved()) {
-                $slider = $this->slider->find($idSlider);
-                if ($slider['gambar'] !== null) {
-                    $oldFotoPath = FCPATH . 'slider/' . $slider['gambar'];
-                    if (file_exists($oldFotoPath)) {
-                        unlink($oldFotoPath);
-                    }
-                }
-
-                $newFotoName = "Slider" . '_' . $gambar->getRandomName();
-                $gambar->move(FCPATH . 'slider', $newFotoName);
-
-                // Update data slider dengan foto baru
-                $this->slider->update($idSlider, [
-                    'judul' => $judul,
-                    'keterangan' => $keterangan,
-                    'gambar' => $newFotoName,
-                    'thumbnail' => $newFotoName,
-                ]);
-            } else {
-                // Jika tidak ada foto baru diunggah, update data slider tanpa foto
-                $this->slider->update($idSlider, [
-                    'judul' => $judul,
-                    'keterangan' => $keterangan,
-                ]);
-            }
-
-            session()->setFlashdata('success', 'Data Slider Berhasil Di Update');
-            return redirect()->to('/sliders');
+        if ($imagePath && file_exists(FCPATH . 'slider/' . $imagePath)) {
+            $this->deleteFile('slider/' . $imagePath);
         }
     }
 
+    /**
+     * Update existing slider
+     */
+    public function update()
+    {
+        $data = $this->getFormData(['idslider', 'judul', 'keterangan']);
+        $idSlider = $data['idslider'];
+        $gambar = $this->request->getFile('gambar');
+
+        $rules = $this->getSliderValidationRules(false);
+
+        // Add image validation if new image is uploaded
+        if ($gambar->isValid() && !$gambar->hasMoved()) {
+            $rules['gambar'] = [
+                'label' => 'Gambar Slider',
+                'rules' => 'uploaded[gambar]|max_size[gambar,' . self::MAX_FILE_SIZE . ']|mime_in[gambar,' . self::ALLOWED_IMAGE_TYPES . ']',
+                'errors' => [
+                    'uploaded' => 'Gambar slider harus diisi',
+                    'max_size' => 'Ukuran gambar maksimum ' . self::MAX_FILE_SIZE . 'KB',
+                    'mime_in' => 'Format gambar harus JPEG, PNG, JPG atau WebP'
+                ]
+            ];
+        }
+
+        if (!$this->validate($rules)) {
+            return $this->handleValidationErrors(['judul', 'keterangan', 'gambar']);
+        }
+
+        $updateData = [
+            'judul' => $data['judul'],
+            'keterangan' => $data['keterangan'],
+        ];
+
+        // Handle image update
+        if ($gambar->isValid() && !$gambar->hasMoved()) {
+            $existingSlider = $this->sliderModel->find($idSlider);
+            
+            // Delete old image
+            if ($existingSlider && $existingSlider['gambar']) {
+                $this->deleteOldImages($existingSlider['gambar']);
+            }
+
+            // Process new image
+            $imageData = $this->processImageUpload();
+            $updateData['gambar'] = $imageData['gambar'];
+            $updateData['thumbnail'] = $imageData['thumbnail'];
+        }
+
+        $this->sliderModel->update($idSlider, $updateData);
+
+        return $this->setSuccessMessage('Data Slider Berhasil Di Update', '/sliders');
+    }
+
+    /**
+     * Delete slider
+     */
     public function delete($id = null)
     {
-        if ($this->request->isAJAX()) {
-            $cekReferensi = $this->slider->find($id);
-
-            if ($cekReferensi) {
-                // Menghapus foto jika ada
-                if ($cekReferensi['gambar'] !== null) {
-                    $fotoPath = FCPATH . 'slider/' . $cekReferensi['gambar'];
-                    if (file_exists($fotoPath)) {
-                        unlink($fotoPath);
-                    }
-                }
-
-                // Menghapus data dari database
-                $this->slider->delete($id);
-
-
-                $json = [
-                    'sukses' => 'Data Berhasil Terhapus'
-                ];
-                echo json_encode($json);
-            }
+        if (!$this->isAjaxRequest()) {
+            return $this->jsonError('Access denied', 403);
         }
+
+        $slider = $this->sliderModel->find($id);
+
+        if (!$slider) {
+            return $this->jsonError('Slider tidak ditemukan', 404);
+        }
+
+        // Delete associated image
+        if ($slider['gambar']) {
+            $this->deleteOldImages($slider['gambar']);
+        }
+
+        // Delete from database
+        $this->sliderModel->delete($id);
+
+        return $this->jsonSuccess('Data Berhasil Terhapus');
     }
 }
