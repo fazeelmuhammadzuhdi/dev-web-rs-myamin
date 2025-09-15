@@ -234,10 +234,16 @@ local function sendDiscordCheatLog(player, cheatType, details, severity, action)
 		return
 	end
 
+	-- Error handling untuk parameter yang nil
+	if not player then
+		print("[DISCORD CHEAT LOG] Error: Player parameter is nil")
+		return
+	end
+
 	local currentTime = getWIBTime()
-	local playerName = player.Name
-	local playerId = player.UserId
-	local playerDisplayName = player.DisplayName ~= "" and player.DisplayName or player.Name
+	local playerName = player.Name or "Unknown"
+	local playerId = player.UserId or 0
+	local playerDisplayName = (player.DisplayName and player.DisplayName ~= "") and player.DisplayName or playerName
 
 	-- Create simple message dengan 1 emoji saja
 	local message = string.format(
@@ -250,12 +256,15 @@ local function sendDiscordCheatLog(player, cheatType, details, severity, action)
 		"**Severity:** %s\n" ..
 		"**Server:** %s\n" ..
 		"**Waktu:** %s",
-		playerDisplayName, playerName, playerId, 
-		CHEAT_TYPES[cheatType] or cheatType,
-		ACTION_TYPES[action] or action,
+		playerDisplayName or "Unknown", 
+		playerName or "Unknown", 
+		playerId or 0, 
+		CHEAT_TYPES[cheatType] or cheatType or "UNKNOWN",
+		ACTION_TYPES[action] or action or "UNKNOWN",
 		details or "Tidak ada detail",
 		severity or "MEDIUM",
-		DISCORD_CONFIG.SERVER_NAME, currentTime
+		DISCORD_CONFIG.SERVER_NAME or "Unknown Server", 
+		currentTime or "Unknown Time"
 	)
 
 	local data = {
@@ -283,10 +292,16 @@ local function sendDiscordJoinLog(player)
 		return
 	end
 
+	-- Error handling untuk parameter yang nil
+	if not player then
+		print("[DISCORD JOIN LOG] Error: Player parameter is nil")
+		return
+	end
+
 	local currentTime = getWIBTime()
-	local playerName = player.Name
-	local playerId = player.UserId
-	local playerDisplayName = player.DisplayName ~= "" and player.DisplayName or player.Name
+	local playerName = player.Name or "Unknown"
+	local playerId = player.UserId or 0
+	local playerDisplayName = (player.DisplayName and player.DisplayName ~= "") and player.DisplayName or playerName
 
 	local message = string.format(
 		"🟢 **PLAYER BERGABUNG**\n" ..
@@ -294,7 +309,11 @@ local function sendDiscordJoinLog(player)
 		"**ID:** %d\n" ..
 		"**Server:** %s\n" ..
 		"**Waktu:** %s",
-		playerDisplayName, playerName, playerId, DISCORD_CONFIG.SERVER_NAME, currentTime
+		playerDisplayName or "Unknown", 
+		playerName or "Unknown", 
+		playerId or 0, 
+		DISCORD_CONFIG.SERVER_NAME or "Unknown Server", 
+		currentTime or "Unknown Time"
 	)
 
 	local data = {
@@ -322,10 +341,16 @@ local function sendDiscordLeaveLog(player)
 		return
 	end
 
+	-- Error handling untuk parameter yang nil
+	if not player then
+		print("[DISCORD LEAVE LOG] Error: Player parameter is nil")
+		return
+	end
+
 	local currentTime = getWIBTime()
-	local playerName = player.Name
-	local playerId = player.UserId
-	local playerDisplayName = player.DisplayName ~= "" and player.DisplayName or player.Name
+	local playerName = player.Name or "Unknown"
+	local playerId = player.UserId or 0
+	local playerDisplayName = (player.DisplayName and player.DisplayName ~= "") and player.DisplayName or playerName
 
 	local message = string.format(
 		"🔴 **PLAYER KELUAR**\n" ..
@@ -333,7 +358,11 @@ local function sendDiscordLeaveLog(player)
 		"**ID:** %d\n" ..
 		"**Server:** %s\n" ..
 		"**Waktu:** %s",
-		playerDisplayName, playerName, playerId, DISCORD_CONFIG.SERVER_NAME, currentTime
+		playerDisplayName or "Unknown", 
+		playerName or "Unknown", 
+		playerId or 0, 
+		DISCORD_CONFIG.SERVER_NAME or "Unknown Server", 
+		currentTime or "Unknown Time"
 	)
 
 	local data = {
@@ -357,8 +386,14 @@ end
 
 -- Utility Functions
 local function isPlayerProtected(player)
-	local userId = player.UserId
-	for _, protectedId in ipairs(ANTI_CHEAT_CONFIG.PROTECTED_USERS) do
+	-- Error handling untuk parameter yang nil
+	if not player then
+		print("[ULTIMATE ANTI-CHEAT] Error: Player parameter is nil in isPlayerProtected")
+		return false
+	end
+
+	local userId = player.UserId or 0
+	for _, protectedId in ipairs(ANTI_CHEAT_CONFIG.PROTECTED_USERS or {}) do
 		if userId == protectedId then
 			return true
 		end
@@ -369,13 +404,19 @@ end
 local function logViolation(player, cheatType, details, severity, action)
 	if not ANTI_CHEAT_CONFIG.LOG_VIOLATIONS then return end
 
+	-- Error handling untuk parameter yang nil
+	if not player then
+		print("[ULTIMATE ANTI-CHEAT] Error: Player parameter is nil in logViolation")
+		return
+	end
+
 	local logMessage = string.format(
 		"[ULTIMATE ANTI-CHEAT] %s (%s) - %s [%s] - %s: %s",
-		player.Name,
-		player.UserId,
-		CHEAT_TYPES[cheatType] or cheatType,
+		player.Name or "Unknown",
+		player.UserId or 0,
+		CHEAT_TYPES[cheatType] or cheatType or "UNKNOWN",
 		severity or "MEDIUM",
-		ACTION_TYPES[action] or action,
+		ACTION_TYPES[action] or action or "UNKNOWN",
 		details or "Tidak ada detail"
 	)
 
@@ -414,9 +455,15 @@ local function getViolationCount(player, cheatType)
 end
 
 local function warnPlayer(player, reason)
+	-- Error handling untuk parameter yang nil
+	if not player then
+		print("[ULTIMATE ANTI-CHEAT] Error: Player parameter is nil in warnPlayer")
+		return
+	end
+
 	if isPlayerProtected(player) then return end
 
-	logViolation(player, "WARNING", reason, "LOW", "WARNING")
+	logViolation(player, "WARNING", reason or "Tidak ada alasan", "LOW", "WARNING")
 
 	-- Send warning message to player
 	local warningGui = Instance.new("ScreenGui")
@@ -445,22 +492,42 @@ local function warnPlayer(player, reason)
 end
 
 local function kickPlayer(player, reason)
+	-- Error handling untuk parameter yang nil
+	if not player then
+		print("[ULTIMATE ANTI-CHEAT] Error: Player parameter is nil in kickPlayer")
+		return
+	end
+
 	if isPlayerProtected(player) then
 		logViolation(player, "PROTECTED", "Mencoba mengeluarkan player yang dilindungi", "INFO", "PROTECTED")
 		return
 	end
 
-	logViolation(player, "KICK", reason, "HIGH", "KICK")
-	player:Kick(ANTI_CHEAT_CONFIG.KICK_MESSAGE)
+	logViolation(player, "KICK", reason or "Tidak ada alasan", "HIGH", "KICK")
+	
+	-- Error handling untuk kick
+	local success, errorMsg = pcall(function()
+		player:Kick(ANTI_CHEAT_CONFIG.KICK_MESSAGE or "Anda telah dikeluarkan dari server karena menggunakan program ilegal.")
+	end)
+	
+	if not success then
+		print("[ULTIMATE ANTI-CHEAT] Error kicking player:", errorMsg)
+	end
 end
 
 local function banPlayer(player, reason)
+	-- Error handling untuk parameter yang nil
+	if not player then
+		print("[ULTIMATE ANTI-CHEAT] Error: Player parameter is nil in banPlayer")
+		return
+	end
+
 	if isPlayerProtected(player) then
 		logViolation(player, "PROTECTED", "Mencoba memblokir player yang dilindungi", "INFO", "PROTECTED")
 		return
 	end
 
-	logViolation(player, "BAN", reason, "CRITICAL", "BAN")
+	logViolation(player, "BAN", reason or "Tidak ada alasan", "CRITICAL", "BAN")
 
 	if not punishmentHistory[player.UserId] then
 		punishmentHistory[player.UserId] = {}
@@ -1521,7 +1588,7 @@ _G.UltimateAntiCheat = {
 			DisplayName = "TestExecutorPlayer"
 		}
 		
-		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "Delta executor terdeteksi di _G - Program ilegal ditemukan")
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "Delta executor terdeteksi di _G - Program ilegal ditemukan", "HIGH", "KICK")
 		
 		print("[ULTIMATE ANTI-CHEAT] ✅ Executor Webhook Test Completed!")
 	end,
@@ -1535,7 +1602,7 @@ _G.UltimateAntiCheat = {
 			DisplayName = "TestDeltaPlayer"
 		}
 		
-		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "Delta executor terdeteksi di _G - Program ilegal ditemukan")
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "Delta executor terdeteksi di _G - Program ilegal ditemukan", "HIGH", "KICK")
 		
 		print("[ULTIMATE ANTI-CHEAT] ✅ Delta Executor Webhook Test Completed!")
 	end,
@@ -1549,7 +1616,7 @@ _G.UltimateAntiCheat = {
 			DisplayName = "TestKRNLPlayer"
 		}
 		
-		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "KRNL executor terdeteksi di getfenv - Program ilegal ditemukan")
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KRNL executor terdeteksi di getfenv - Program ilegal ditemukan", "HIGH", "KICK")
 		
 		print("[ULTIMATE ANTI-CHEAT] ✅ KRNL Executor Webhook Test Completed!")
 	end,
@@ -1563,7 +1630,7 @@ _G.UltimateAntiCheat = {
 			DisplayName = "TestSynapsePlayer"
 		}
 		
-		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "Synapse executor terdeteksi di CoreGui - Program ilegal ditemukan")
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "Synapse executor terdeteksi di CoreGui - Program ilegal ditemukan", "HIGH", "KICK")
 		
 		print("[ULTIMATE ANTI-CHEAT] ✅ Synapse Executor Webhook Test Completed!")
 	end,
@@ -1577,7 +1644,7 @@ _G.UltimateAntiCheat = {
 			DisplayName = "TestScriptWarePlayer"
 		}
 		
-		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "ScriptWare executor terdeteksi di PlayerGui - Program ilegal ditemukan")
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "ScriptWare executor terdeteksi di PlayerGui - Program ilegal ditemukan", "HIGH", "KICK")
 		
 		print("[ULTIMATE ANTI-CHEAT] ✅ ScriptWare Executor Webhook Test Completed!")
 	end,
@@ -1605,7 +1672,7 @@ _G.UltimateAntiCheat = {
 				DisplayName = executor.displayName
 			}
 			
-			sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", executor.name .. " executor terdeteksi - Program ilegal ditemukan")
+			sendDiscordCheatLog(testPlayer, "EXECUTOR", executor.name .. " executor terdeteksi - Program ilegal ditemukan", "HIGH", "KICK")
 			wait(0.5) -- Delay untuk mencegah spam
 		end
 		
@@ -1621,7 +1688,7 @@ _G.UltimateAntiCheat = {
 			DisplayName = playerName
 		}
 		
-		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", executorName .. " executor terdeteksi - Program ilegal ditemukan")
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", executorName .. " executor terdeteksi - Program ilegal ditemukan", "HIGH", "KICK")
 		
 		print("[ULTIMATE ANTI-CHEAT] ✅ Force Test Executor Log Completed!")
 	end
@@ -1687,6 +1754,9 @@ print("LastCheckTime nil error telah diperbaiki dengan nil check")
 print("LastPosition nil error telah diperbaiki dengan nil check")
 print("ExecutorChecks nil error telah diperbaiki dengan nil check")
 print("Semua violations nil error telah diperbaiki dengan nil check")
+print("String format error telah diperbaiki dengan nil check di semua fungsi")
+print("Player parameter nil error telah diperbaiki dengan error handling")
+print("Webhook test functions telah diperbaiki dengan parameter yang benar")
 print("")
 print("🔧 COMMANDS UNTUK TEST WEBHOOK:")
 print("_G.UltimateAntiCheat.testDiscordWebhooks() - Test semua webhook")
