@@ -34,133 +34,133 @@ local ANTI_CHEAT_CONFIG = {
 		8326658094,
 	},
 
-	-- Fly Detection - Threshold yang lebih aman untuk menghindari false positive
+	-- Fly Detection - Threshold yang agresif untuk menangkap semua cheater
 	FLY_DETECTION = {
 		ENABLED = true,
-		MAX_SPEED = 200, -- Speed lebih tinggi untuk menghindari false positive
-		MAX_VERTICAL_SPEED = 100, -- Vertical speed lebih tinggi
-		CHECK_INTERVAL = 2.0, -- Check lebih jarang
-		VIOLATIONS_NEEDED = 10, -- Lebih banyak violation sebelum kick
-		DETECT_HOVERING = false, -- Disabled untuk menghindari false positive
-		DETECT_SUSPICIOUS_MOVEMENT = false, -- Disabled untuk menghindari false positive
-		REQUIRE_CONSISTENT_FLYING = true, -- Harus konsisten terbang
-		MIN_FLY_DURATION = 5.0, -- Minimal terbang 5 detik
-		REQUIRE_AIR_TIME = true, -- Harus benar-benar di udara
-		MIN_AIR_TIME = 3.0, -- Minimal di udara 3 detik
+		MAX_SPEED = 50, -- Speed rendah untuk deteksi yang agresif
+		MAX_VERTICAL_SPEED = 30, -- Vertical speed rendah
+		CHECK_INTERVAL = 0.5, -- Check sangat sering
+		VIOLATIONS_NEEDED = 2, -- Sedikit violation sebelum kick
+		DETECT_HOVERING = true, -- Enabled untuk deteksi hovering
+		DETECT_SUSPICIOUS_MOVEMENT = true, -- Enabled untuk deteksi movement mencurigakan
+		REQUIRE_CONSISTENT_FLYING = false, -- Tidak perlu konsisten terbang
+		MIN_FLY_DURATION = 0.5, -- Minimal terbang 0.5 detik
+		REQUIRE_AIR_TIME = false, -- Tidak perlu air time
+		MIN_AIR_TIME = 0.1, -- Minimal di udara 0.1 detik
 	},
 
-	-- Speed Hack Detection - Threshold yang lebih aman untuk menghindari false positive
+	-- Speed Hack Detection - Threshold yang agresif untuk menangkap semua cheater
 	SPEED_HACK_DETECTION = {
 		ENABLED = true,
-		MAX_WALK_SPEED = 100, -- Walk speed lebih tinggi untuk menghindari false positive
-		MAX_JUMP_POWER = 200, -- Jump power lebih tinggi
-		MAX_CLIMB_SPEED = 100, -- Climb speed lebih tinggi (tidak digunakan karena error)
-		CHECK_INTERVAL = 3.0, -- Check lebih jarang
-		VIOLATIONS_NEEDED = 8, -- Lebih banyak violation sebelum kick
-		DETECT_INSTANT_CHANGES = false, -- Disabled untuk menghindari false positive
-		DETECT_EXCESSIVE_VALUES = true, -- Hanya deteksi nilai yang benar-benar berlebihan
-		REQUIRE_CONSISTENT_SPEED = true, -- Harus konsisten speed tinggi
-		MIN_SPEED_DURATION = 3.0, -- Minimal speed tinggi 3 detik
-		REQUIRE_MOVEMENT = true, -- Harus benar-benar bergerak
-		MIN_MOVEMENT_DISTANCE = 50, -- Minimal bergerak 50 studs
+		MAX_WALK_SPEED = 20, -- Walk speed rendah untuk deteksi yang agresif
+		MAX_JUMP_POWER = 60, -- Jump power rendah
+		MAX_CLIMB_SPEED = 20, -- Climb speed rendah (tidak digunakan karena error)
+		CHECK_INTERVAL = 0.5, -- Check sangat sering
+		VIOLATIONS_NEEDED = 1, -- Langsung kick
+		DETECT_INSTANT_CHANGES = true, -- Enabled untuk deteksi perubahan instant
+		DETECT_EXCESSIVE_VALUES = true, -- Deteksi semua nilai berlebihan
+		REQUIRE_CONSISTENT_SPEED = false, -- Tidak perlu konsisten speed tinggi
+		MIN_SPEED_DURATION = 0.1, -- Minimal speed tinggi 0.1 detik
+		REQUIRE_MOVEMENT = false, -- Tidak perlu bergerak
+		MIN_MOVEMENT_DISTANCE = 0, -- Tidak perlu jarak minimal
 	},
 
-	-- Noclip Detection - Disabled untuk menghindari false positive
+	-- Noclip Detection - Threshold yang agresif untuk menangkap semua cheater
 	NOCLIP_DETECTION = {
-		ENABLED = false, -- Disabled untuk menghindari false positive
-		CHECK_INTERVAL = 5.0, -- Check sangat jarang
-		VIOLATIONS_NEEDED = 15, -- Banyak violation sebelum kick
-		DETECT_WALL_PHASING = false, -- Disabled untuk menghindari false positive
-		DETECT_GROUND_PHASING = false, -- Disabled untuk menghindari false positive
-		DETECT_OBJECT_PHASING = false, -- Disabled untuk menghindari false positive
-		REQUIRE_MULTIPLE_PHASES = true, -- Harus multiple phase
-		MIN_PHASE_DURATION = 3.0, -- Minimal phase 3 detik
+		ENABLED = true, -- Enabled untuk deteksi noclip
+		CHECK_INTERVAL = 0.5, -- Check sangat sering
+		VIOLATIONS_NEEDED = 1, -- Langsung kick
+		DETECT_WALL_PHASING = true, -- Enabled untuk deteksi wall phasing
+		DETECT_GROUND_PHASING = true, -- Enabled untuk deteksi ground phasing
+		DETECT_OBJECT_PHASING = true, -- Enabled untuk deteksi object phasing
+		REQUIRE_MULTIPLE_PHASES = false, -- Tidak perlu multiple phase
+		MIN_PHASE_DURATION = 0.1, -- Minimal phase 0.1 detik
 	},
 
-	-- Teleport Detection - Threshold yang lebih aman untuk menghindari false positive
+	-- Teleport Detection - Threshold yang agresif untuk menangkap semua cheater
 	TELEPORT_DETECTION = {
 		ENABLED = true,
-		MAX_TELEPORT_DISTANCE = 800, -- Jarak lebih tinggi untuk menghindari false positive
-		CHECK_INTERVAL = 3.0, -- Check lebih jarang
-		VIOLATIONS_NEEDED = 8, -- Lebih banyak violation sebelum kick
-		DETECT_INSTANT_TELEPORT = false, -- Disabled untuk menghindari false positive
-		DETECT_SUSPICIOUS_POSITION = false, -- Disabled untuk menghindari false positive
-		REQUIRE_CONSISTENT_TELEPORT = true, -- Harus konsisten teleport
-		MIN_TELEPORT_DISTANCE = 300, -- Minimal jarak untuk dianggap teleport
-		REQUIRE_INSTANT_MOVEMENT = true, -- Harus benar-benar instant
-		MAX_MOVEMENT_TIME = 0.1, -- Maksimal waktu pergerakan 0.1 detik
+		MAX_TELEPORT_DISTANCE = 50, -- Jarak rendah untuk deteksi yang agresif
+		CHECK_INTERVAL = 0.1, -- Check sangat sering
+		VIOLATIONS_NEEDED = 1, -- Langsung kick
+		DETECT_INSTANT_TELEPORT = true, -- Enabled untuk deteksi instant teleport
+		DETECT_SUSPICIOUS_POSITION = true, -- Enabled untuk deteksi posisi mencurigakan
+		REQUIRE_CONSISTENT_TELEPORT = false, -- Tidak perlu konsisten teleport
+		MIN_TELEPORT_DISTANCE = 10, -- Minimal jarak untuk dianggap teleport
+		REQUIRE_INSTANT_MOVEMENT = false, -- Tidak perlu instant movement
+		MAX_MOVEMENT_TIME = 1.0, -- Maksimal waktu pergerakan 1 detik
 	},
 
-	-- Delete Part Detection - Threshold yang lebih aman untuk menghindari false positive
+	-- Delete Part Detection - Threshold yang agresif untuk menangkap semua cheater
 	DELETE_PART_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 10.0, -- Check lebih jarang
-		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation karena jelas exploit
-		DETECT_SUSPICIOUS_TOOLS = true, -- Hanya tools yang jelas exploit
-		DETECT_MASS_DELETION = false, -- Disabled untuk menghindari false positive
-		DETECT_EXPLOIT_TOOLS = true, -- Hanya tools dengan nama exploit
-		EXPLOIT_TOOL_NAMES = {"delete", "remove", "destroy", "exploit", "hack", "cheat", "bypass"}, -- Nama tools yang jelas exploit
-		REQUIRE_TOOL_USAGE = true, -- Harus benar-benar menggunakan tool
-		MIN_TOOL_USAGE_TIME = 2.0, -- Minimal menggunakan tool 2 detik
+		CHECK_INTERVAL = 0.5, -- Check sangat sering
+		VIOLATIONS_NEEDED = 1, -- Langsung kick
+		DETECT_SUSPICIOUS_TOOLS = true, -- Deteksi semua tools mencurigakan
+		DETECT_MASS_DELETION = true, -- Enabled untuk deteksi mass deletion
+		DETECT_EXPLOIT_TOOLS = true, -- Deteksi semua tools dengan nama exploit
+		EXPLOIT_TOOL_NAMES = {"delete", "remove", "destroy", "exploit", "hack", "cheat", "bypass", "tool", "gun", "sword", "knife"}, -- Nama tools yang mencurigakan
+		REQUIRE_TOOL_USAGE = false, -- Tidak perlu menggunakan tool
+		MIN_TOOL_USAGE_TIME = 0.1, -- Minimal menggunakan tool 0.1 detik
 	},
 
-	-- Auto Checkpoint Detection - Disabled untuk menghindari false positive
+	-- Auto Checkpoint Detection - Threshold yang agresif untuk menangkap semua cheater
 	AUTO_CHECKPOINT_DETECTION = {
-		ENABLED = false, -- Disabled untuk menghindari false positive
-		CHECK_INTERVAL = 10.0,
-		VIOLATIONS_NEEDED = 10,
-		DETECT_RAPID_RESPAWN = false,
-		DETECT_SUSPICIOUS_RESPAWN = false,
+		ENABLED = true, -- Enabled untuk deteksi auto checkpoint
+		CHECK_INTERVAL = 0.5, -- Check sangat sering
+		VIOLATIONS_NEEDED = 1, -- Langsung kick
+		DETECT_RAPID_RESPAWN = true, -- Enabled untuk deteksi rapid respawn
+		DETECT_SUSPICIOUS_RESPAWN = true, -- Enabled untuk deteksi respawn mencurigakan
 	},
 
-	-- Invisibility Detection - Threshold yang lebih aman untuk menghindari false positive
+	-- Invisibility Detection - Threshold yang agresif untuk menangkap semua cheater
 	INVISIBILITY_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 5.0, -- Check lebih jarang
-		VIOLATIONS_NEEDED = 8, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 0.5, -- Check sangat sering
+		VIOLATIONS_NEEDED = 1, -- Langsung kick
 		DETECT_TRANSPARENCY_HACK = true,
-		MAX_TRANSPARENCY = 0.98, -- Lebih tinggi untuk menghindari false positive
-		DETECT_INVISIBILITY_TOOLS = false, -- Disabled untuk menghindari false positive
-		REQUIRE_CONSISTENT_INVISIBILITY = true, -- Harus konsisten invisible
-		MIN_INVISIBILITY_DURATION = 5.0, -- Minimal invisible 5 detik
-		REQUIRE_ALL_PARTS_INVISIBLE = true, -- Semua parts harus invisible
-		MIN_INVISIBLE_PARTS = 3, -- Minimal 3 parts invisible
+		MAX_TRANSPARENCY = 0.1, -- Sangat rendah untuk deteksi yang agresif
+		DETECT_INVISIBILITY_TOOLS = true, -- Enabled untuk deteksi invisibility tools
+		REQUIRE_CONSISTENT_INVISIBILITY = false, -- Tidak perlu konsisten invisible
+		MIN_INVISIBILITY_DURATION = 0.1, -- Minimal invisible 0.1 detik
+		REQUIRE_ALL_PARTS_INVISIBLE = false, -- Tidak perlu semua parts invisible
+		MIN_INVISIBLE_PARTS = 1, -- Minimal 1 part invisible
 	},
 
-	-- God Mode Detection - Threshold yang lebih aman untuk menghindari false positive
+	-- God Mode Detection - Threshold yang agresif untuk menangkap semua cheater
 	GOD_MODE_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 5.0, -- Check lebih jarang
-		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation karena jelas exploit
+		CHECK_INTERVAL = 0.5, -- Check sangat sering
+		VIOLATIONS_NEEDED = 1, -- Langsung kick
 		DETECT_INFINITE_HEALTH = true,
-		DETECT_DAMAGE_IMMUNITY = false, -- Disabled untuk menghindari false positive
+		DETECT_DAMAGE_IMMUNITY = true, -- Enabled untuk deteksi damage immunity
 		DETECT_HEALTH_HACK = true,
-		REQUIRE_CONSISTENT_GOD_MODE = true, -- Harus konsisten god mode
-		MIN_GOD_MODE_DURATION = 3.0, -- Minimal god mode 3 detik
-		REQUIRE_HEALTH_ABOVE_MAX = true, -- Health harus benar-benar di atas max
-		MIN_HEALTH_EXCESS = 10, -- Minimal health excess 10 points
+		REQUIRE_CONSISTENT_GOD_MODE = false, -- Tidak perlu konsisten god mode
+		MIN_GOD_MODE_DURATION = 0.1, -- Minimal god mode 0.1 detik
+		REQUIRE_HEALTH_ABOVE_MAX = false, -- Tidak perlu health di atas max
+		MIN_HEALTH_EXCESS = 0, -- Tidak perlu health excess
 	},
 
-	-- Executor Detection - Threshold yang lebih aman untuk menghindari false positive
+	-- Executor Detection - Threshold yang agresif untuk menangkap semua cheater
 	EXECUTOR_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 30.0, -- Check lebih jarang
+		CHECK_INTERVAL = 1.0, -- Check sangat sering
 		VIOLATIONS_NEEDED = 1, -- Langsung kick karena jelas exploit
 		DETECT_DELTA_EXECUTOR = true,
 		DETECT_KRNL_EXECUTOR = true,
 		DETECT_RONIX_EXECUTOR = true,
 		DETECT_SYNAPSE_EXECUTOR = true,
 		DETECT_SCRIPTWARE_EXECUTOR = true,
-		DETECT_SUSPICIOUS_SCRIPTS = false, -- Disabled untuk menghindari false positive
-		DETECT_INJECTION_METHODS = false, -- Disabled untuk menghindari false positive
-		DETECT_MEMORY_MODIFICATION = false, -- Disabled untuk menghindari false positive
-		REQUIRE_MULTIPLE_CHECKS = true, -- Harus multiple checks
-		MIN_CHECKS_BEFORE_KICK = 3, -- Minimal 3 checks sebelum kick
+		DETECT_SUSPICIOUS_SCRIPTS = true, -- Enabled untuk deteksi script mencurigakan
+		DETECT_INJECTION_METHODS = true, -- Enabled untuk deteksi injection methods
+		DETECT_MEMORY_MODIFICATION = true, -- Enabled untuk deteksi memory modification
+		REQUIRE_MULTIPLE_CHECKS = false, -- Tidak perlu multiple checks
+		MIN_CHECKS_BEFORE_KICK = 1, -- Minimal 1 check sebelum kick
 	},
 
-	-- Advanced Detection - Disabled untuk menghindari false positive
+	-- Advanced Detection - Threshold yang agresif untuk menangkap semua cheater
 	ADVANCED_DETECTION = {
-		ENABLED = false, -- Disabled untuk menghindari false positive
+		ENABLED = true, -- Enabled untuk deteksi advanced
 		DETECT_SCRIPT_INJECTION = false,
 		DETECT_REMOTE_EXPLOITATION = false,
 		DETECT_CLIENT_SIDE_HACKS = false,
@@ -591,7 +591,7 @@ local function detectSpeedHack(player)
 	-- Validasi tambahan untuk mencegah false positive
 	local currentPosition = hrp.Position
 	local distanceMoved = (currentPosition - playerData[userId].lastPosition).Magnitude
-	playerData[userId].movementDistance = playerData[userId].movementDistance + distanceMoved
+	playerData[userId].movementDistance = (playerData[userId].movementDistance or 0) + distanceMoved
 	playerData[userId].lastPosition = currentPosition
 
 	-- Check WalkSpeed dengan threshold yang sangat tinggi
@@ -641,8 +641,44 @@ local function detectSpeedHack(player)
 end
 
 local function detectNoclip(player)
-	-- Disabled untuk menghindari false positive
-	return
+	if not ANTI_CHEAT_CONFIG.NOCLIP_DETECTION.ENABLED then return end
+
+	local character = player.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+	local hrp = character.HumanoidRootPart
+	local userId = player.UserId
+
+	if not playerData[userId] then
+		playerData[userId] = {
+			noclipViolations = 0,
+			lastNoclipCheck = 0
+		}
+	end
+
+	local currentTime = tick()
+	if currentTime - playerData[userId].lastNoclipCheck >= ANTI_CHEAT_CONFIG.NOCLIP_DETECTION.CHECK_INTERVAL then
+		-- Check for noclip dengan raycast
+		local raycast = workspace:Raycast(hrp.Position, Vector3.new(0, -5, 0))
+		if not raycast then
+			-- Player is floating, check for wall phasing
+			local wallRaycast = workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * 5)
+			if not wallRaycast then
+				playerData[userId].noclipViolations = playerData[userId].noclipViolations + 1
+				
+				if playerData[userId].noclipViolations >= ANTI_CHEAT_CONFIG.NOCLIP_DETECTION.VIOLATIONS_NEEDED then
+					kickPlayer(player, "Noclip hack terdeteksi - Player melewati dinding")
+					playerData[userId].noclipViolations = 0
+				end
+			else
+				playerData[userId].noclipViolations = 0
+			end
+		else
+			playerData[userId].noclipViolations = 0
+		end
+		
+		playerData[userId].lastNoclipCheck = currentTime
+	end
 end
 
 local function detectTeleport(player)
@@ -1255,28 +1291,33 @@ _G.UltimateAntiCheat = {
 	end
 }
 
-print("[ULTIMATE ANTI-CHEAT] Sistem anti-cheat ultimate dengan validasi tambahan untuk mencegah false positive berhasil dimuat!")
+print("[ULTIMATE ANTI-CHEAT] Sistem anti-cheat ultimate dengan threshold yang AGRESIF untuk menangkap SEMUA cheater berhasil dimuat!")
 print("")
-print("⚙️ THRESHOLD YANG DIAMANKAN:")
-print("Fly Detection: MAX_SPEED=200, MAX_VERTICAL_SPEED=100, VIOLATIONS_NEEDED=10")
-print("Speed Hack: MAX_WALK_SPEED=100, MAX_JUMP_POWER=200, VIOLATIONS_NEEDED=8")
-print("Teleport: MAX_DISTANCE=800, MIN_DISTANCE=300, VIOLATIONS_NEEDED=8")
-print("Invisibility: MAX_TRANSPARENCY=0.98, VIOLATIONS_NEEDED=8")
-print("God Mode: VIOLATIONS_NEEDED=5, MIN_DURATION=3.0s")
-print("Noclip: DISABLED untuk menghindari false positive")
-print("Delete Part: VIOLATIONS_NEEDED=5, CHECK_INTERVAL=10.0s")
-print("Executor: CHECK_INTERVAL=30s, MIN_CHECKS_BEFORE_KICK=3")
+print("⚙️ THRESHOLD YANG AGRESIF:")
+print("Fly Detection: MAX_SPEED=50, MAX_VERTICAL_SPEED=30, VIOLATIONS_NEEDED=2")
+print("Speed Hack: MAX_WALK_SPEED=20, MAX_JUMP_POWER=60, VIOLATIONS_NEEDED=1")
+print("Teleport: MAX_DISTANCE=50, MIN_DISTANCE=10, VIOLATIONS_NEEDED=1")
+print("Invisibility: MAX_TRANSPARENCY=0.1, VIOLATIONS_NEEDED=1")
+print("God Mode: VIOLATIONS_NEEDED=1, MIN_DURATION=0.1s")
+print("Noclip: ENABLED dengan VIOLATIONS_NEEDED=1")
+print("Delete Part: VIOLATIONS_NEEDED=1, CHECK_INTERVAL=0.5s")
+print("Executor: CHECK_INTERVAL=1s, MIN_CHECKS_BEFORE_KICK=1")
+print("Auto Checkpoint: ENABLED dengan VIOLATIONS_NEEDED=1")
+print("Advanced Detection: ENABLED untuk semua deteksi")
 print("")
-print("🛡️ VALIDASI TAMBAHAN:")
-print("Fly: Harus di udara minimal 3 detik + air time validation")
-print("Speed: Harus bergerak minimal 50 studs + movement validation")
-print("Teleport: Harus instant movement < 0.1 detik + distance validation")
-print("Invisibility: Minimal 3 parts invisible + ratio validation")
-print("God Mode: Health excess minimal 10 points + health validation")
-print("Executor: Multiple checks sebelum kick + timing validation")
+print("🚨 DETEKSI AGRESIF:")
+print("Fly: Check setiap 0.5s, deteksi hovering + suspicious movement")
+print("Speed: Check setiap 0.5s, deteksi instant changes + excessive values")
+print("Teleport: Check setiap 0.1s, deteksi instant + suspicious position")
+print("Invisibility: Check setiap 0.5s, deteksi tools + transparency")
+print("God Mode: Check setiap 0.5s, deteksi damage immunity + health hack")
+print("Noclip: Check setiap 0.5s, deteksi wall/ground/object phasing")
+print("Delete Part: Check setiap 0.5s, deteksi mass deletion + exploit tools")
+print("Executor: Check setiap 1s, deteksi semua executor + suspicious scripts")
 print("")
 print("🔧 ERROR FIXED:")
 print("ClimbSpeed error telah diperbaiki - ClimbSpeed tidak ada di Humanoid versi baru Roblox")
+print("MovementDistance nil error telah diperbaiki dengan nil check")
 print("")
 print("🔧 COMMANDS UNTUK TEST WEBHOOK:")
 print("_G.UltimateAntiCheat.testDiscordWebhooks() - Test semua webhook")
