@@ -34,66 +34,74 @@ local ANTI_CHEAT_CONFIG = {
 		8326658094,
 	},
 
-	-- Fly Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
+	-- Fly Detection - Threshold yang lebih aman untuk menghindari false positive
 	FLY_DETECTION = {
 		ENABLED = true,
-		MAX_SPEED = 120, -- Speed lebih kecil untuk deteksi yang lebih sensitif
-		MAX_VERTICAL_SPEED = 60, -- Vertical speed lebih kecil
-		CHECK_INTERVAL = 1.0, -- Check lebih sering
-		VIOLATIONS_NEEDED = 5, -- Lebih sedikit violation sebelum kick
+		MAX_SPEED = 200, -- Speed lebih tinggi untuk menghindari false positive
+		MAX_VERTICAL_SPEED = 100, -- Vertical speed lebih tinggi
+		CHECK_INTERVAL = 2.0, -- Check lebih jarang
+		VIOLATIONS_NEEDED = 10, -- Lebih banyak violation sebelum kick
 		DETECT_HOVERING = false, -- Disabled untuk menghindari false positive
 		DETECT_SUSPICIOUS_MOVEMENT = false, -- Disabled untuk menghindari false positive
 		REQUIRE_CONSISTENT_FLYING = true, -- Harus konsisten terbang
-		MIN_FLY_DURATION = 2.0, -- Minimal terbang 2 detik
+		MIN_FLY_DURATION = 5.0, -- Minimal terbang 5 detik
+		REQUIRE_AIR_TIME = true, -- Harus benar-benar di udara
+		MIN_AIR_TIME = 3.0, -- Minimal di udara 3 detik
 	},
 
-	-- Speed Hack Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
+	-- Speed Hack Detection - Threshold yang lebih aman untuk menghindari false positive
 	SPEED_HACK_DETECTION = {
 		ENABLED = true,
-		MAX_WALK_SPEED = 60, -- Walk speed lebih kecil untuk deteksi yang lebih sensitif
-		MAX_JUMP_POWER = 120, -- Jump power lebih kecil
-		MAX_CLIMB_SPEED = 60, -- Climb speed lebih kecil (tidak digunakan karena error)
-		CHECK_INTERVAL = 1.5, -- Check lebih sering
-		VIOLATIONS_NEEDED = 3, -- Lebih sedikit violation sebelum kick
+		MAX_WALK_SPEED = 100, -- Walk speed lebih tinggi untuk menghindari false positive
+		MAX_JUMP_POWER = 200, -- Jump power lebih tinggi
+		MAX_CLIMB_SPEED = 100, -- Climb speed lebih tinggi (tidak digunakan karena error)
+		CHECK_INTERVAL = 3.0, -- Check lebih jarang
+		VIOLATIONS_NEEDED = 8, -- Lebih banyak violation sebelum kick
 		DETECT_INSTANT_CHANGES = false, -- Disabled untuk menghindari false positive
 		DETECT_EXCESSIVE_VALUES = true, -- Hanya deteksi nilai yang benar-benar berlebihan
 		REQUIRE_CONSISTENT_SPEED = true, -- Harus konsisten speed tinggi
-		MIN_SPEED_DURATION = 1.5, -- Minimal speed tinggi 1.5 detik
+		MIN_SPEED_DURATION = 3.0, -- Minimal speed tinggi 3 detik
+		REQUIRE_MOVEMENT = true, -- Harus benar-benar bergerak
+		MIN_MOVEMENT_DISTANCE = 50, -- Minimal bergerak 50 studs
 	},
 
-	-- Noclip Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
+	-- Noclip Detection - Disabled untuk menghindari false positive
 	NOCLIP_DETECTION = {
-		ENABLED = true,
-		CHECK_INTERVAL = 2.0, -- Check lebih sering
-		VIOLATIONS_NEEDED = 5, -- Lebih sedikit violation sebelum kick
+		ENABLED = false, -- Disabled untuk menghindari false positive
+		CHECK_INTERVAL = 5.0, -- Check sangat jarang
+		VIOLATIONS_NEEDED = 15, -- Banyak violation sebelum kick
 		DETECT_WALL_PHASING = false, -- Disabled untuk menghindari false positive
 		DETECT_GROUND_PHASING = false, -- Disabled untuk menghindari false positive
 		DETECT_OBJECT_PHASING = false, -- Disabled untuk menghindari false positive
 		REQUIRE_MULTIPLE_PHASES = true, -- Harus multiple phase
-		MIN_PHASE_DURATION = 1.0, -- Minimal phase 1 detik
+		MIN_PHASE_DURATION = 3.0, -- Minimal phase 3 detik
 	},
 
-	-- Teleport Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
+	-- Teleport Detection - Threshold yang lebih aman untuk menghindari false positive
 	TELEPORT_DETECTION = {
 		ENABLED = true,
-		MAX_TELEPORT_DISTANCE = 300, -- Jarak lebih kecil untuk deteksi yang lebih sensitif
-		CHECK_INTERVAL = 1.0, -- Check lebih sering
-		VIOLATIONS_NEEDED = 3, -- Lebih sedikit violation sebelum kick
+		MAX_TELEPORT_DISTANCE = 800, -- Jarak lebih tinggi untuk menghindari false positive
+		CHECK_INTERVAL = 3.0, -- Check lebih jarang
+		VIOLATIONS_NEEDED = 8, -- Lebih banyak violation sebelum kick
 		DETECT_INSTANT_TELEPORT = false, -- Disabled untuk menghindari false positive
 		DETECT_SUSPICIOUS_POSITION = false, -- Disabled untuk menghindari false positive
 		REQUIRE_CONSISTENT_TELEPORT = true, -- Harus konsisten teleport
-		MIN_TELEPORT_DISTANCE = 100, -- Minimal jarak untuk dianggap teleport
+		MIN_TELEPORT_DISTANCE = 300, -- Minimal jarak untuk dianggap teleport
+		REQUIRE_INSTANT_MOVEMENT = true, -- Harus benar-benar instant
+		MAX_MOVEMENT_TIME = 0.1, -- Maksimal waktu pergerakan 0.1 detik
 	},
 
-	-- Delete Part Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
+	-- Delete Part Detection - Threshold yang lebih aman untuk menghindari false positive
 	DELETE_PART_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 3.0, -- Check lebih sering
-		VIOLATIONS_NEEDED = 2, -- Lebih sedikit violation karena jelas exploit
+		CHECK_INTERVAL = 10.0, -- Check lebih jarang
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation karena jelas exploit
 		DETECT_SUSPICIOUS_TOOLS = true, -- Hanya tools yang jelas exploit
 		DETECT_MASS_DELETION = false, -- Disabled untuk menghindari false positive
 		DETECT_EXPLOIT_TOOLS = true, -- Hanya tools dengan nama exploit
 		EXPLOIT_TOOL_NAMES = {"delete", "remove", "destroy", "exploit", "hack", "cheat", "bypass"}, -- Nama tools yang jelas exploit
+		REQUIRE_TOOL_USAGE = true, -- Harus benar-benar menggunakan tool
+		MIN_TOOL_USAGE_TIME = 2.0, -- Minimal menggunakan tool 2 detik
 	},
 
 	-- Auto Checkpoint Detection - Disabled untuk menghindari false positive
@@ -105,34 +113,38 @@ local ANTI_CHEAT_CONFIG = {
 		DETECT_SUSPICIOUS_RESPAWN = false,
 	},
 
-	-- Invisibility Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
+	-- Invisibility Detection - Threshold yang lebih aman untuk menghindari false positive
 	INVISIBILITY_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 2.0, -- Check lebih sering
-		VIOLATIONS_NEEDED = 3, -- Lebih sedikit violation sebelum kick
+		CHECK_INTERVAL = 5.0, -- Check lebih jarang
+		VIOLATIONS_NEEDED = 8, -- Lebih banyak violation sebelum kick
 		DETECT_TRANSPARENCY_HACK = true,
-		MAX_TRANSPARENCY = 0.90, -- Lebih sensitif untuk deteksi invisibility
+		MAX_TRANSPARENCY = 0.98, -- Lebih tinggi untuk menghindari false positive
 		DETECT_INVISIBILITY_TOOLS = false, -- Disabled untuk menghindari false positive
 		REQUIRE_CONSISTENT_INVISIBILITY = true, -- Harus konsisten invisible
-		MIN_INVISIBILITY_DURATION = 1.5, -- Minimal invisible 1.5 detik
+		MIN_INVISIBILITY_DURATION = 5.0, -- Minimal invisible 5 detik
+		REQUIRE_ALL_PARTS_INVISIBLE = true, -- Semua parts harus invisible
+		MIN_INVISIBLE_PARTS = 3, -- Minimal 3 parts invisible
 	},
 
-	-- God Mode Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
+	-- God Mode Detection - Threshold yang lebih aman untuk menghindari false positive
 	GOD_MODE_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 1.5, -- Check lebih sering
-		VIOLATIONS_NEEDED = 2, -- Lebih sedikit violation karena jelas exploit
+		CHECK_INTERVAL = 5.0, -- Check lebih jarang
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation karena jelas exploit
 		DETECT_INFINITE_HEALTH = true,
 		DETECT_DAMAGE_IMMUNITY = false, -- Disabled untuk menghindari false positive
 		DETECT_HEALTH_HACK = true,
 		REQUIRE_CONSISTENT_GOD_MODE = true, -- Harus konsisten god mode
-		MIN_GOD_MODE_DURATION = 1.0, -- Minimal god mode 1 detik
+		MIN_GOD_MODE_DURATION = 3.0, -- Minimal god mode 3 detik
+		REQUIRE_HEALTH_ABOVE_MAX = true, -- Health harus benar-benar di atas max
+		MIN_HEALTH_EXCESS = 10, -- Minimal health excess 10 points
 	},
 
-	-- Executor Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
+	-- Executor Detection - Threshold yang lebih aman untuk menghindari false positive
 	EXECUTOR_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 10.0, -- Check lebih sering
+		CHECK_INTERVAL = 30.0, -- Check lebih jarang
 		VIOLATIONS_NEEDED = 1, -- Langsung kick karena jelas exploit
 		DETECT_DELTA_EXECUTOR = true,
 		DETECT_KRNL_EXECUTOR = true,
@@ -142,6 +154,8 @@ local ANTI_CHEAT_CONFIG = {
 		DETECT_SUSPICIOUS_SCRIPTS = false, -- Disabled untuk menghindari false positive
 		DETECT_INJECTION_METHODS = false, -- Disabled untuk menghindari false positive
 		DETECT_MEMORY_MODIFICATION = false, -- Disabled untuk menghindari false positive
+		REQUIRE_MULTIPLE_CHECKS = true, -- Harus multiple checks
+		MIN_CHECKS_BEFORE_KICK = 3, -- Minimal 3 checks sebelum kick
 	},
 
 	-- Advanced Detection - Disabled untuk menghindari false positive
@@ -461,7 +475,7 @@ local function banPlayer(player, reason)
 	player:Kick(ANTI_CHEAT_CONFIG.BAN_MESSAGE)
 end
 
--- Improved Detection Functions dengan threshold yang TIDAK FALSE POSITIVE
+-- Improved Detection Functions dengan validasi tambahan untuk mencegah false positive
 local function detectFly(player)
 	if not ANTI_CHEAT_CONFIG.FLY_DETECTION.ENABLED then return end
 
@@ -477,7 +491,9 @@ local function detectFly(player)
 		playerData[userId] = {
 			flyStartTime = 0,
 			flyViolations = 0,
-			lastFlyCheck = 0
+			lastFlyCheck = 0,
+			airTime = 0,
+			lastGroundTime = 0
 		}
 	end
 
@@ -485,12 +501,33 @@ local function detectFly(player)
 	local speed = velocity.Magnitude
 	local verticalSpeed = math.abs(velocity.Y)
 
+	-- Validasi tambahan untuk mencegah false positive
+	if speed < 50 or verticalSpeed < 20 then
+		-- Reset tracking jika speed terlalu rendah
+		playerData[userId].flyStartTime = 0
+		playerData[userId].flyViolations = 0
+		playerData[userId].airTime = 0
+		return
+	end
+
 	-- Check for flying dengan threshold yang sangat tinggi
 	if speed > ANTI_CHEAT_CONFIG.FLY_DETECTION.MAX_SPEED then
-		local raycast = workspace:Raycast(hrp.Position, Vector3.new(0, -15, 0))
+		local raycast = workspace:Raycast(hrp.Position, Vector3.new(0, -20, 0))
 		if not raycast then -- Player is in air
 			if verticalSpeed > ANTI_CHEAT_CONFIG.FLY_DETECTION.MAX_VERTICAL_SPEED then
 				local currentTime = tick()
+				
+				-- Track air time
+				if playerData[userId].airTime == 0 then
+					playerData[userId].airTime = currentTime
+				end
+				
+				local airDuration = currentTime - playerData[userId].airTime
+				
+				-- Validasi: Harus benar-benar di udara cukup lama
+				if ANTI_CHEAT_CONFIG.FLY_DETECTION.REQUIRE_AIR_TIME and airDuration < ANTI_CHEAT_CONFIG.FLY_DETECTION.MIN_AIR_TIME then
+					return
+				end
 				
 				-- Track flying duration
 				if playerData[userId].flyStartTime == 0 then
@@ -505,11 +542,12 @@ local function detectFly(player)
 					local flyDuration = currentTime - playerData[userId].flyStartTime
 					if flyDuration >= ANTI_CHEAT_CONFIG.FLY_DETECTION.MIN_FLY_DURATION and 
 					   playerData[userId].flyViolations >= ANTI_CHEAT_CONFIG.FLY_DETECTION.VIOLATIONS_NEEDED then
-						local reason = string.format("Fly hack terdeteksi - Speed: %.1f, Vertical: %.1f, Duration: %.1fs", 
-							speed, verticalSpeed, flyDuration)
+						local reason = string.format("Fly hack terdeteksi - Speed: %.1f, Vertical: %.1f, Duration: %.1fs, AirTime: %.1fs", 
+							speed, verticalSpeed, flyDuration, airDuration)
 						kickPlayer(player, reason)
 						playerData[userId].flyStartTime = 0
 						playerData[userId].flyViolations = 0
+						playerData[userId].airTime = 0
 					end
 				end
 			end
@@ -517,11 +555,14 @@ local function detectFly(player)
 			-- Player is on ground, reset fly tracking
 			playerData[userId].flyStartTime = 0
 			playerData[userId].flyViolations = 0
+			playerData[userId].airTime = 0
+			playerData[userId].lastGroundTime = tick()
 		end
 	else
 		-- Speed is normal, reset fly tracking
 		playerData[userId].flyStartTime = 0
 		playerData[userId].flyViolations = 0
+		playerData[userId].airTime = 0
 	end
 end
 
@@ -532,19 +573,36 @@ local function detectSpeedHack(player)
 	if not character or not character:FindFirstChild("Humanoid") then return end
 
 	local humanoid = character.Humanoid
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
 	local userId = player.UserId
 
 	if not playerData[userId] then
 		playerData[userId] = {
 			speedStartTime = 0,
 			speedViolations = 0,
-			lastSpeedCheck = 0
+			lastSpeedCheck = 0,
+			movementDistance = 0,
+			lastPosition = hrp.Position
 		}
 	end
+
+	-- Validasi tambahan untuk mencegah false positive
+	local currentPosition = hrp.Position
+	local distanceMoved = (currentPosition - playerData[userId].lastPosition).Magnitude
+	playerData[userId].movementDistance = playerData[userId].movementDistance + distanceMoved
+	playerData[userId].lastPosition = currentPosition
 
 	-- Check WalkSpeed dengan threshold yang sangat tinggi
 	if humanoid.WalkSpeed > ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.MAX_WALK_SPEED then
 		local currentTime = tick()
+		
+		-- Validasi: Harus benar-benar bergerak cukup jauh
+		if ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.REQUIRE_MOVEMENT and 
+		   playerData[userId].movementDistance < ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.MIN_MOVEMENT_DISTANCE then
+			return
+		end
 		
 		if playerData[userId].speedStartTime == 0 then
 			playerData[userId].speedStartTime = currentTime
@@ -557,17 +615,19 @@ local function detectSpeedHack(player)
 			local speedDuration = currentTime - playerData[userId].speedStartTime
 			if speedDuration >= ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.MIN_SPEED_DURATION and 
 			   playerData[userId].speedViolations >= ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.VIOLATIONS_NEEDED then
-				local reason = string.format("Speed hack terdeteksi - WalkSpeed: %.1f (Normal: 16), Duration: %.1fs", 
-					humanoid.WalkSpeed, speedDuration)
+				local reason = string.format("Speed hack terdeteksi - WalkSpeed: %.1f (Normal: 16), Duration: %.1fs, Distance: %.1f", 
+					humanoid.WalkSpeed, speedDuration, playerData[userId].movementDistance)
 				kickPlayer(player, reason)
 				playerData[userId].speedStartTime = 0
 				playerData[userId].speedViolations = 0
+				playerData[userId].movementDistance = 0
 			end
 		end
 	else
 		-- Speed is normal, reset tracking
 		playerData[userId].speedStartTime = 0
 		playerData[userId].speedViolations = 0
+		playerData[userId].movementDistance = 0
 	end
 
 	-- Check JumpPower dengan threshold yang sangat tinggi
@@ -599,7 +659,8 @@ local function detectTeleport(player)
 			lastPosition = hrp.Position,
 			lastCheckTime = tick(),
 			teleportViolations = 0,
-			teleportStartTime = 0
+			teleportStartTime = 0,
+			movementStartTime = 0
 		}
 		return
 	end
@@ -611,8 +672,27 @@ local function detectTeleport(player)
 		local distance = (hrp.Position - playerData[userId].lastPosition).Magnitude
 		local maxDistance = ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.MAX_TELEPORT_DISTANCE * timeDelta
 
-		-- Hanya deteksi jika jarak benar-benar sangat jauh
-		if distance > maxDistance and distance > ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.MIN_TELEPORT_DISTANCE then
+		-- Validasi tambahan untuk mencegah false positive
+		if distance < 50 then
+			-- Reset tracking jika jarak terlalu kecil
+			playerData[userId].teleportViolations = 0
+			playerData[userId].teleportStartTime = 0
+			playerData[userId].movementStartTime = 0
+		elseif distance > maxDistance and distance > ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.MIN_TELEPORT_DISTANCE then
+			-- Validasi: Harus benar-benar instant movement
+			if ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.REQUIRE_INSTANT_MOVEMENT then
+				if playerData[userId].movementStartTime == 0 then
+					playerData[userId].movementStartTime = currentTime
+				end
+				
+				local movementTime = currentTime - playerData[userId].movementStartTime
+				if movementTime > ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.MAX_MOVEMENT_TIME then
+					-- Movement terlalu lama, bukan teleport
+					playerData[userId].movementStartTime = 0
+					return
+				end
+			end
+			
 			if ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.REQUIRE_CONSISTENT_TELEPORT then
 				if playerData[userId].teleportStartTime == 0 then
 					playerData[userId].teleportStartTime = currentTime
@@ -622,16 +702,19 @@ local function detectTeleport(player)
 				end
 
 				if playerData[userId].teleportViolations >= ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.VIOLATIONS_NEEDED then
-					local reason = string.format("Teleport hack terdeteksi - Jarak: %.1f studs dalam %.2f detik", distance, timeDelta)
+					local reason = string.format("Teleport hack terdeteksi - Jarak: %.1f studs dalam %.2f detik, MovementTime: %.3fs", 
+						distance, timeDelta, movementTime or 0)
 					kickPlayer(player, reason)
 					playerData[userId].teleportViolations = 0
 					playerData[userId].teleportStartTime = 0
+					playerData[userId].movementStartTime = 0
 				end
 			end
 		else
 			-- Reset teleport tracking
 			playerData[userId].teleportViolations = 0
 			playerData[userId].teleportStartTime = 0
+			playerData[userId].movementStartTime = 0
 		end
 
 		playerData[userId].lastPosition = hrp.Position
@@ -683,37 +766,69 @@ local function detectInvisibility(player)
 		}
 	end
 
-	-- Check for transparency hack dengan threshold yang sangat tinggi
+	-- Check for transparency hack dengan validasi tambahan untuk mencegah false positive
 	if ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.DETECT_TRANSPARENCY_HACK then
-		local isInvisible = false
+		local invisibleParts = 0
+		local totalParts = 0
+		local veryInvisibleParts = 0
+
 		for _, part in ipairs(character:GetChildren()) do
-			if part:IsA("BasePart") then
+			if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+				totalParts = totalParts + 1
 				if part.Transparency > ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.MAX_TRANSPARENCY then
-					isInvisible = true
-					break
+					invisibleParts = invisibleParts + 1
+					if part.Transparency >= 0.95 then
+						veryInvisibleParts = veryInvisibleParts + 1
+					end
 				end
 			end
 		end
 
-		if isInvisible then
-			local currentTime = tick()
-			
-			if playerData[userId].invisibilityStartTime == 0 then
-				playerData[userId].invisibilityStartTime = currentTime
-				playerData[userId].invisibilityViolations = 1
-			else
-				playerData[userId].invisibilityViolations = playerData[userId].invisibilityViolations + 1
-			end
+		-- Validasi tambahan untuk mencegah false positive
+		if totalParts < 3 then
+			-- Tidak cukup parts untuk deteksi yang akurat
+			playerData[userId].invisibilityStartTime = 0
+			playerData[userId].invisibilityViolations = 0
+			return
+		end
 
-			if ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.REQUIRE_CONSISTENT_INVISIBILITY then
-				local invisibilityDuration = currentTime - playerData[userId].invisibilityStartTime
-				if invisibilityDuration >= ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.MIN_INVISIBILITY_DURATION and 
-				   playerData[userId].invisibilityViolations >= ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.VIOLATIONS_NEEDED then
-					local reason = string.format("Invisibility hack terdeteksi - Duration: %.1fs", invisibilityDuration)
-					kickPlayer(player, reason)
-					playerData[userId].invisibilityStartTime = 0
-					playerData[userId].invisibilityViolations = 0
+		-- Validasi: Harus minimal 3 parts invisible dan semua parts harus invisible
+		if ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.REQUIRE_ALL_PARTS_INVISIBLE then
+			if invisibleParts < ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.MIN_INVISIBLE_PARTS then
+				playerData[userId].invisibilityStartTime = 0
+				playerData[userId].invisibilityViolations = 0
+				return
+			end
+		end
+
+		if invisibleParts > 0 then
+			local invisibilityRatio = invisibleParts / totalParts
+			
+			if invisibilityRatio >= 0.5 then -- At least half of parts are invisible
+				local currentTime = tick()
+				
+				if playerData[userId].invisibilityStartTime == 0 then
+					playerData[userId].invisibilityStartTime = currentTime
+					playerData[userId].invisibilityViolations = 1
+				else
+					playerData[userId].invisibilityViolations = playerData[userId].invisibilityViolations + 1
 				end
+
+				if ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.REQUIRE_CONSISTENT_INVISIBILITY then
+					local invisibilityDuration = currentTime - playerData[userId].invisibilityStartTime
+					if invisibilityDuration >= ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.MIN_INVISIBILITY_DURATION and 
+					   playerData[userId].invisibilityViolations >= ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.VIOLATIONS_NEEDED then
+						local reason = string.format("Invisibility hack terdeteksi - %d/%d parts invisible (%.1f%%), VeryInvisible: %d, Duration: %.1fs", 
+							invisibleParts, totalParts, invisibilityRatio * 100, veryInvisibleParts, invisibilityDuration)
+						kickPlayer(player, reason)
+						playerData[userId].invisibilityStartTime = 0
+						playerData[userId].invisibilityViolations = 0
+					end
+				end
+			else
+				-- Reset invisibility tracking
+				playerData[userId].invisibilityStartTime = 0
+				playerData[userId].invisibilityViolations = 0
 			end
 		else
 			-- Not invisible, reset tracking
@@ -739,9 +854,20 @@ local function detectGodMode(player)
 		}
 	end
 
-	-- Check for infinite health dengan threshold yang sangat tinggi
+	-- Check for infinite health dengan validasi tambahan untuk mencegah false positive
 	if ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.DETECT_INFINITE_HEALTH then
 		if humanoid.Health > humanoid.MaxHealth then
+			local healthExcess = humanoid.Health - humanoid.MaxHealth
+			
+			-- Validasi: Health harus benar-benar di atas max dengan margin yang cukup
+			if ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.REQUIRE_HEALTH_ABOVE_MAX and 
+			   healthExcess < ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.MIN_HEALTH_EXCESS then
+				-- Health excess terlalu kecil, mungkin false positive
+				playerData[userId].godModeStartTime = 0
+				playerData[userId].godModeViolations = 0
+				return
+			end
+			
 			local currentTime = tick()
 			
 			if playerData[userId].godModeStartTime == 0 then
@@ -755,8 +881,8 @@ local function detectGodMode(player)
 				local godModeDuration = currentTime - playerData[userId].godModeStartTime
 				if godModeDuration >= ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.MIN_GOD_MODE_DURATION and 
 				   playerData[userId].godModeViolations >= ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.VIOLATIONS_NEEDED then
-					local reason = string.format("God mode terdeteksi - Health: %.1f/%d, Duration: %.1fs", 
-						humanoid.Health, humanoid.MaxHealth, godModeDuration)
+					local reason = string.format("God mode terdeteksi - Health: %.1f/%d (Excess: %.1f), Duration: %.1fs", 
+						humanoid.Health, humanoid.MaxHealth, healthExcess, godModeDuration)
 					kickPlayer(player, reason)
 					playerData[userId].godModeStartTime = 0
 					playerData[userId].godModeViolations = 0
@@ -770,9 +896,28 @@ local function detectGodMode(player)
 	end
 end
 
--- Enhanced Executor Detection - Hanya deteksi yang benar-benar jelas
+-- Enhanced Executor Detection dengan multiple checks untuk mencegah false positive
 local function detectExecutor(player)
 	if not ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.ENABLED then return end
+
+	local userId = player.UserId
+	if not playerData[userId] then
+		playerData[userId] = {
+			executorChecks = 0,
+			lastExecutorCheck = 0
+		}
+	end
+
+	local currentTime = tick()
+	
+	-- Validasi: Harus multiple checks sebelum kick
+	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.REQUIRE_MULTIPLE_CHECKS then
+		if playerData[userId].executorChecks < ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.MIN_CHECKS_BEFORE_KICK then
+			playerData[userId].executorChecks = playerData[userId].executorChecks + 1
+			playerData[userId].lastExecutorCheck = currentTime
+			return
+		end
+	end
 
 	-- Check for Delta executor
 	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.DETECT_DELTA_EXECUTOR then
@@ -1110,17 +1255,25 @@ _G.UltimateAntiCheat = {
 	end
 }
 
-print("[ULTIMATE ANTI-CHEAT] Sistem anti-cheat ultimate dengan threshold yang diperkecil untuk deteksi yang lebih sensitif berhasil dimuat!")
+print("[ULTIMATE ANTI-CHEAT] Sistem anti-cheat ultimate dengan validasi tambahan untuk mencegah false positive berhasil dimuat!")
 print("")
-print("⚙️ THRESHOLD YANG DIPERKECIL:")
-print("Fly Detection: MAX_SPEED=120, MAX_VERTICAL_SPEED=60, VIOLATIONS_NEEDED=5")
-print("Speed Hack: MAX_WALK_SPEED=60, MAX_JUMP_POWER=120, VIOLATIONS_NEEDED=3")
-print("Teleport: MAX_DISTANCE=300, MIN_DISTANCE=100, VIOLATIONS_NEEDED=3")
-print("Invisibility: MAX_TRANSPARENCY=0.90, VIOLATIONS_NEEDED=3")
-print("God Mode: VIOLATIONS_NEEDED=2, MIN_DURATION=1.0s")
-print("Noclip: VIOLATIONS_NEEDED=5, MIN_DURATION=1.0s")
-print("Delete Part: VIOLATIONS_NEEDED=2, CHECK_INTERVAL=3.0s")
-print("Executor: CHECK_INTERVAL=10s, Langsung kick jika terdeteksi")
+print("⚙️ THRESHOLD YANG DIAMANKAN:")
+print("Fly Detection: MAX_SPEED=200, MAX_VERTICAL_SPEED=100, VIOLATIONS_NEEDED=10")
+print("Speed Hack: MAX_WALK_SPEED=100, MAX_JUMP_POWER=200, VIOLATIONS_NEEDED=8")
+print("Teleport: MAX_DISTANCE=800, MIN_DISTANCE=300, VIOLATIONS_NEEDED=8")
+print("Invisibility: MAX_TRANSPARENCY=0.98, VIOLATIONS_NEEDED=8")
+print("God Mode: VIOLATIONS_NEEDED=5, MIN_DURATION=3.0s")
+print("Noclip: DISABLED untuk menghindari false positive")
+print("Delete Part: VIOLATIONS_NEEDED=5, CHECK_INTERVAL=10.0s")
+print("Executor: CHECK_INTERVAL=30s, MIN_CHECKS_BEFORE_KICK=3")
+print("")
+print("🛡️ VALIDASI TAMBAHAN:")
+print("Fly: Harus di udara minimal 3 detik + air time validation")
+print("Speed: Harus bergerak minimal 50 studs + movement validation")
+print("Teleport: Harus instant movement < 0.1 detik + distance validation")
+print("Invisibility: Minimal 3 parts invisible + ratio validation")
+print("God Mode: Health excess minimal 10 points + health validation")
+print("Executor: Multiple checks sebelum kick + timing validation")
 print("")
 print("🔧 ERROR FIXED:")
 print("ClimbSpeed error telah diperbaiki - ClimbSpeed tidak ada di Humanoid versi baru Roblox")
