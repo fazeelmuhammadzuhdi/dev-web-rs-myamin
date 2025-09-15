@@ -34,62 +34,62 @@ local ANTI_CHEAT_CONFIG = {
 		8326658094,
 	},
 
-	-- Fly Detection - Threshold yang sesuai dengan gameplay normal Roblox
+	-- Fly Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
 	FLY_DETECTION = {
 		ENABLED = true,
-		MAX_SPEED = 200, -- Speed tinggi tapi masih masuk akal untuk Roblox
-		MAX_VERTICAL_SPEED = 100, -- Vertical speed tinggi tapi masih masuk akal
-		CHECK_INTERVAL = 1.5, -- Check lebih sering untuk deteksi yang lebih baik
-		VIOLATIONS_NEEDED = 8, -- Sedikit violation sebelum kick
+		MAX_SPEED = 120, -- Speed lebih kecil untuk deteksi yang lebih sensitif
+		MAX_VERTICAL_SPEED = 60, -- Vertical speed lebih kecil
+		CHECK_INTERVAL = 1.0, -- Check lebih sering
+		VIOLATIONS_NEEDED = 5, -- Lebih sedikit violation sebelum kick
 		DETECT_HOVERING = false, -- Disabled untuk menghindari false positive
 		DETECT_SUSPICIOUS_MOVEMENT = false, -- Disabled untuk menghindari false positive
 		REQUIRE_CONSISTENT_FLYING = true, -- Harus konsisten terbang
-		MIN_FLY_DURATION = 3.0, -- Minimal terbang 3 detik
+		MIN_FLY_DURATION = 2.0, -- Minimal terbang 2 detik
 	},
 
-	-- Speed Hack Detection - Threshold yang sesuai dengan gameplay normal Roblox
+	-- Speed Hack Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
 	SPEED_HACK_DETECTION = {
 		ENABLED = true,
-		MAX_WALK_SPEED = 100, -- Walk speed tinggi tapi masih masuk akal untuk Roblox
-		MAX_JUMP_POWER = 200, -- Jump power tinggi tapi masih masuk akal
-		MAX_CLIMB_SPEED = 100, -- Climb speed tinggi tapi masih masuk akal
-		CHECK_INTERVAL = 2.0, -- Check lebih sering untuk deteksi yang lebih baik
-		VIOLATIONS_NEEDED = 5, -- Sedikit violation sebelum kick
+		MAX_WALK_SPEED = 60, -- Walk speed lebih kecil untuk deteksi yang lebih sensitif
+		MAX_JUMP_POWER = 120, -- Jump power lebih kecil
+		MAX_CLIMB_SPEED = 60, -- Climb speed lebih kecil (tidak digunakan karena error)
+		CHECK_INTERVAL = 1.5, -- Check lebih sering
+		VIOLATIONS_NEEDED = 3, -- Lebih sedikit violation sebelum kick
 		DETECT_INSTANT_CHANGES = false, -- Disabled untuk menghindari false positive
 		DETECT_EXCESSIVE_VALUES = true, -- Hanya deteksi nilai yang benar-benar berlebihan
 		REQUIRE_CONSISTENT_SPEED = true, -- Harus konsisten speed tinggi
-		MIN_SPEED_DURATION = 2.0, -- Minimal speed tinggi 2 detik
+		MIN_SPEED_DURATION = 1.5, -- Minimal speed tinggi 1.5 detik
 	},
 
-	-- Noclip Detection - Konservatif tapi masih bisa deteksi
+	-- Noclip Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
 	NOCLIP_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 3.0, -- Check lebih sering untuk deteksi yang lebih baik
-		VIOLATIONS_NEEDED = 10, -- Sedikit violation sebelum kick
+		CHECK_INTERVAL = 2.0, -- Check lebih sering
+		VIOLATIONS_NEEDED = 5, -- Lebih sedikit violation sebelum kick
 		DETECT_WALL_PHASING = false, -- Disabled untuk menghindari false positive
 		DETECT_GROUND_PHASING = false, -- Disabled untuk menghindari false positive
 		DETECT_OBJECT_PHASING = false, -- Disabled untuk menghindari false positive
 		REQUIRE_MULTIPLE_PHASES = true, -- Harus multiple phase
-		MIN_PHASE_DURATION = 1.5, -- Minimal phase 1.5 detik
+		MIN_PHASE_DURATION = 1.0, -- Minimal phase 1 detik
 	},
 
-	-- Teleport Detection - Threshold yang sesuai dengan gameplay normal Roblox
+	-- Teleport Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
 	TELEPORT_DETECTION = {
 		ENABLED = true,
-		MAX_TELEPORT_DISTANCE = 500, -- Jarak tinggi tapi masih masuk akal untuk Roblox
-		CHECK_INTERVAL = 1.5, -- Check lebih sering untuk deteksi yang lebih baik
-		VIOLATIONS_NEEDED = 5, -- Sedikit violation sebelum kick
+		MAX_TELEPORT_DISTANCE = 300, -- Jarak lebih kecil untuk deteksi yang lebih sensitif
+		CHECK_INTERVAL = 1.0, -- Check lebih sering
+		VIOLATIONS_NEEDED = 3, -- Lebih sedikit violation sebelum kick
 		DETECT_INSTANT_TELEPORT = false, -- Disabled untuk menghindari false positive
 		DETECT_SUSPICIOUS_POSITION = false, -- Disabled untuk menghindari false positive
 		REQUIRE_CONSISTENT_TELEPORT = true, -- Harus konsisten teleport
-		MIN_TELEPORT_DISTANCE = 200, -- Minimal jarak untuk dianggap teleport
+		MIN_TELEPORT_DISTANCE = 100, -- Minimal jarak untuk dianggap teleport
 	},
 
-	-- Delete Part Detection - Hanya deteksi tools yang jelas exploit
+	-- Delete Part Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
 	DELETE_PART_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 5.0, -- Check lebih sering untuk deteksi yang lebih baik
-		VIOLATIONS_NEEDED = 3, -- Sedikit violation karena jelas exploit
+		CHECK_INTERVAL = 3.0, -- Check lebih sering
+		VIOLATIONS_NEEDED = 2, -- Lebih sedikit violation karena jelas exploit
 		DETECT_SUSPICIOUS_TOOLS = true, -- Hanya tools yang jelas exploit
 		DETECT_MASS_DELETION = false, -- Disabled untuk menghindari false positive
 		DETECT_EXPLOIT_TOOLS = true, -- Hanya tools dengan nama exploit
@@ -105,34 +105,34 @@ local ANTI_CHEAT_CONFIG = {
 		DETECT_SUSPICIOUS_RESPAWN = false,
 	},
 
-	-- Invisibility Detection - Threshold yang sesuai dengan gameplay normal Roblox
+	-- Invisibility Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
 	INVISIBILITY_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 3.0, -- Check lebih sering untuk deteksi yang lebih baik
-		VIOLATIONS_NEEDED = 5, -- Sedikit violation sebelum kick
+		CHECK_INTERVAL = 2.0, -- Check lebih sering
+		VIOLATIONS_NEEDED = 3, -- Lebih sedikit violation sebelum kick
 		DETECT_TRANSPARENCY_HACK = true,
-		MAX_TRANSPARENCY = 0.95, -- Hampir benar-benar invisible tapi masih masuk akal
+		MAX_TRANSPARENCY = 0.90, -- Lebih sensitif untuk deteksi invisibility
 		DETECT_INVISIBILITY_TOOLS = false, -- Disabled untuk menghindari false positive
 		REQUIRE_CONSISTENT_INVISIBILITY = true, -- Harus konsisten invisible
-		MIN_INVISIBILITY_DURATION = 2.0, -- Minimal invisible 2 detik
+		MIN_INVISIBILITY_DURATION = 1.5, -- Minimal invisible 1.5 detik
 	},
 
-	-- God Mode Detection - Threshold yang sesuai dengan gameplay normal Roblox
+	-- God Mode Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
 	GOD_MODE_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 2.0, -- Check lebih sering untuk deteksi yang lebih baik
-		VIOLATIONS_NEEDED = 3, -- Sedikit violation karena jelas exploit
+		CHECK_INTERVAL = 1.5, -- Check lebih sering
+		VIOLATIONS_NEEDED = 2, -- Lebih sedikit violation karena jelas exploit
 		DETECT_INFINITE_HEALTH = true,
 		DETECT_DAMAGE_IMMUNITY = false, -- Disabled untuk menghindari false positive
 		DETECT_HEALTH_HACK = true,
 		REQUIRE_CONSISTENT_GOD_MODE = true, -- Harus konsisten god mode
-		MIN_GOD_MODE_DURATION = 1.5, -- Minimal god mode 1.5 detik
+		MIN_GOD_MODE_DURATION = 1.0, -- Minimal god mode 1 detik
 	},
 
-	-- Executor Detection - Hanya deteksi yang benar-benar jelas
+	-- Executor Detection - Threshold yang lebih kecil untuk deteksi yang lebih sensitif
 	EXECUTOR_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 15.0, -- Check lebih sering untuk deteksi yang lebih baik
+		CHECK_INTERVAL = 10.0, -- Check lebih sering
 		VIOLATIONS_NEEDED = 1, -- Langsung kick karena jelas exploit
 		DETECT_DELTA_EXECUTOR = true,
 		DETECT_KRNL_EXECUTOR = true,
@@ -576,11 +576,8 @@ local function detectSpeedHack(player)
 		kickPlayer(player, reason)
 	end
 
-	-- Check ClimbSpeed dengan threshold yang sangat tinggi
-	if humanoid.ClimbSpeed > ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.MAX_CLIMB_SPEED then
-		local reason = string.format("Climb speed hack terdeteksi - ClimbSpeed: %.1f (Normal: 16)", humanoid.ClimbSpeed)
-		kickPlayer(player, reason)
-	end
+	-- Check ClimbSpeed dengan threshold yang sangat tinggi (ClimbSpeed tidak ada di Humanoid, skip)
+	-- ClimbSpeed is not a valid member of Humanoid in newer Roblox versions
 end
 
 local function detectNoclip(player)
@@ -1113,15 +1110,20 @@ _G.UltimateAntiCheat = {
 	end
 }
 
-print("[ULTIMATE ANTI-CHEAT] Sistem anti-cheat ultimate dengan threshold yang disesuaikan untuk gameplay normal Roblox berhasil dimuat!")
+print("[ULTIMATE ANTI-CHEAT] Sistem anti-cheat ultimate dengan threshold yang diperkecil untuk deteksi yang lebih sensitif berhasil dimuat!")
 print("")
-print("⚙️ THRESHOLD YANG DISESUAIKAN:")
-print("Fly Detection: MAX_SPEED=200, MAX_VERTICAL_SPEED=100, VIOLATIONS_NEEDED=8")
-print("Speed Hack: MAX_WALK_SPEED=100, MAX_JUMP_POWER=200, VIOLATIONS_NEEDED=5")
-print("Teleport: MAX_DISTANCE=500, MIN_DISTANCE=200, VIOLATIONS_NEEDED=5")
-print("Invisibility: MAX_TRANSPARENCY=0.95, VIOLATIONS_NEEDED=5")
-print("God Mode: VIOLATIONS_NEEDED=3, MIN_DURATION=1.5s")
-print("Executor: CHECK_INTERVAL=15s, Langsung kick jika terdeteksi")
+print("⚙️ THRESHOLD YANG DIPERKECIL:")
+print("Fly Detection: MAX_SPEED=120, MAX_VERTICAL_SPEED=60, VIOLATIONS_NEEDED=5")
+print("Speed Hack: MAX_WALK_SPEED=60, MAX_JUMP_POWER=120, VIOLATIONS_NEEDED=3")
+print("Teleport: MAX_DISTANCE=300, MIN_DISTANCE=100, VIOLATIONS_NEEDED=3")
+print("Invisibility: MAX_TRANSPARENCY=0.90, VIOLATIONS_NEEDED=3")
+print("God Mode: VIOLATIONS_NEEDED=2, MIN_DURATION=1.0s")
+print("Noclip: VIOLATIONS_NEEDED=5, MIN_DURATION=1.0s")
+print("Delete Part: VIOLATIONS_NEEDED=2, CHECK_INTERVAL=3.0s")
+print("Executor: CHECK_INTERVAL=10s, Langsung kick jika terdeteksi")
+print("")
+print("🔧 ERROR FIXED:")
+print("ClimbSpeed error telah diperbaiki - ClimbSpeed tidak ada di Humanoid versi baru Roblox")
 print("")
 print("🔧 COMMANDS UNTUK TEST WEBHOOK:")
 print("_G.UltimateAntiCheat.testDiscordWebhooks() - Test semua webhook")
