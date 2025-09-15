@@ -534,14 +534,14 @@ local function detectFly(player)
 					playerData[userId].flyStartTime = currentTime
 					playerData[userId].flyViolations = 1
 				else
-					playerData[userId].flyViolations = playerData[userId].flyViolations + 1
+					playerData[userId].flyViolations = (playerData[userId].flyViolations or 0) + 1
 				end
 
 				-- Only kick if flying consistently for required duration
 				if ANTI_CHEAT_CONFIG.FLY_DETECTION.REQUIRE_CONSISTENT_FLYING then
 					local flyDuration = currentTime - playerData[userId].flyStartTime
 					if flyDuration >= ANTI_CHEAT_CONFIG.FLY_DETECTION.MIN_FLY_DURATION and 
-					   playerData[userId].flyViolations >= ANTI_CHEAT_CONFIG.FLY_DETECTION.VIOLATIONS_NEEDED then
+					   (playerData[userId].flyViolations or 0) >= ANTI_CHEAT_CONFIG.FLY_DETECTION.VIOLATIONS_NEEDED then
 						local reason = string.format("Fly hack terdeteksi - Speed: %.1f, Vertical: %.1f, Duration: %.1fs, AirTime: %.1fs", 
 							speed, verticalSpeed, flyDuration, airDuration)
 						kickPlayer(player, reason)
@@ -590,7 +590,7 @@ local function detectSpeedHack(player)
 
 	-- Validasi tambahan untuk mencegah false positive
 	local currentPosition = hrp.Position
-	local distanceMoved = (currentPosition - playerData[userId].lastPosition).Magnitude
+	local distanceMoved = (currentPosition - (playerData[userId].lastPosition or currentPosition)).Magnitude
 	playerData[userId].movementDistance = (playerData[userId].movementDistance or 0) + distanceMoved
 	playerData[userId].lastPosition = currentPosition
 
@@ -608,13 +608,13 @@ local function detectSpeedHack(player)
 			playerData[userId].speedStartTime = currentTime
 			playerData[userId].speedViolations = 1
 		else
-			playerData[userId].speedViolations = playerData[userId].speedViolations + 1
+			playerData[userId].speedViolations = (playerData[userId].speedViolations or 0) + 1
 		end
 
 		if ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.REQUIRE_CONSISTENT_SPEED then
 			local speedDuration = currentTime - playerData[userId].speedStartTime
 			if speedDuration >= ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.MIN_SPEED_DURATION and 
-			   playerData[userId].speedViolations >= ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.VIOLATIONS_NEEDED then
+			   (playerData[userId].speedViolations or 0) >= ANTI_CHEAT_CONFIG.SPEED_HACK_DETECTION.VIOLATIONS_NEEDED then
 				local reason = string.format("Speed hack terdeteksi - WalkSpeed: %.1f (Normal: 16), Duration: %.1fs, Distance: %.1f", 
 					humanoid.WalkSpeed, speedDuration, playerData[userId].movementDistance)
 				kickPlayer(player, reason)
@@ -657,16 +657,16 @@ local function detectNoclip(player)
 	end
 
 	local currentTime = tick()
-	if currentTime - playerData[userId].lastNoclipCheck >= ANTI_CHEAT_CONFIG.NOCLIP_DETECTION.CHECK_INTERVAL then
+	if currentTime - (playerData[userId].lastNoclipCheck or 0) >= ANTI_CHEAT_CONFIG.NOCLIP_DETECTION.CHECK_INTERVAL then
 		-- Check for noclip dengan raycast
 		local raycast = workspace:Raycast(hrp.Position, Vector3.new(0, -5, 0))
 		if not raycast then
 			-- Player is floating, check for wall phasing
 			local wallRaycast = workspace:Raycast(hrp.Position, hrp.CFrame.LookVector * 5)
 			if not wallRaycast then
-				playerData[userId].noclipViolations = playerData[userId].noclipViolations + 1
+				playerData[userId].noclipViolations = (playerData[userId].noclipViolations or 0) + 1
 				
-				if playerData[userId].noclipViolations >= ANTI_CHEAT_CONFIG.NOCLIP_DETECTION.VIOLATIONS_NEEDED then
+				if (playerData[userId].noclipViolations or 0) >= ANTI_CHEAT_CONFIG.NOCLIP_DETECTION.VIOLATIONS_NEEDED then
 					kickPlayer(player, "Noclip hack terdeteksi - Player melewati dinding")
 					playerData[userId].noclipViolations = 0
 				end
@@ -702,10 +702,10 @@ local function detectTeleport(player)
 	end
 
 	local currentTime = tick()
-	local timeDelta = currentTime - playerData[userId].lastCheckTime
+	local timeDelta = currentTime - (playerData[userId].lastCheckTime or 0)
 
 	if timeDelta >= ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.CHECK_INTERVAL then
-		local distance = (hrp.Position - playerData[userId].lastPosition).Magnitude
+		local distance = (hrp.Position - (playerData[userId].lastPosition or hrp.Position)).Magnitude
 		local maxDistance = ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.MAX_TELEPORT_DISTANCE * timeDelta
 
 		-- Validasi tambahan untuk mencegah false positive
@@ -734,10 +734,10 @@ local function detectTeleport(player)
 					playerData[userId].teleportStartTime = currentTime
 					playerData[userId].teleportViolations = 1
 				else
-					playerData[userId].teleportViolations = playerData[userId].teleportViolations + 1
+					playerData[userId].teleportViolations = (playerData[userId].teleportViolations or 0) + 1
 				end
 
-				if playerData[userId].teleportViolations >= ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.VIOLATIONS_NEEDED then
+				if (playerData[userId].teleportViolations or 0) >= ANTI_CHEAT_CONFIG.TELEPORT_DETECTION.VIOLATIONS_NEEDED then
 					local reason = string.format("Teleport hack terdeteksi - Jarak: %.1f studs dalam %.2f detik, MovementTime: %.3fs", 
 						distance, timeDelta, movementTime or 0)
 					kickPlayer(player, reason)
@@ -847,13 +847,13 @@ local function detectInvisibility(player)
 					playerData[userId].invisibilityStartTime = currentTime
 					playerData[userId].invisibilityViolations = 1
 				else
-					playerData[userId].invisibilityViolations = playerData[userId].invisibilityViolations + 1
+					playerData[userId].invisibilityViolations = (playerData[userId].invisibilityViolations or 0) + 1
 				end
 
 				if ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.REQUIRE_CONSISTENT_INVISIBILITY then
 					local invisibilityDuration = currentTime - playerData[userId].invisibilityStartTime
 					if invisibilityDuration >= ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.MIN_INVISIBILITY_DURATION and 
-					   playerData[userId].invisibilityViolations >= ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.VIOLATIONS_NEEDED then
+					   (playerData[userId].invisibilityViolations or 0) >= ANTI_CHEAT_CONFIG.INVISIBILITY_DETECTION.VIOLATIONS_NEEDED then
 						local reason = string.format("Invisibility hack terdeteksi - %d/%d parts invisible (%.1f%%), VeryInvisible: %d, Duration: %.1fs", 
 							invisibleParts, totalParts, invisibilityRatio * 100, veryInvisibleParts, invisibilityDuration)
 						kickPlayer(player, reason)
@@ -910,13 +910,13 @@ local function detectGodMode(player)
 				playerData[userId].godModeStartTime = currentTime
 				playerData[userId].godModeViolations = 1
 			else
-				playerData[userId].godModeViolations = playerData[userId].godModeViolations + 1
+				playerData[userId].godModeViolations = (playerData[userId].godModeViolations or 0) + 1
 			end
 
 			if ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.REQUIRE_CONSISTENT_GOD_MODE then
 				local godModeDuration = currentTime - playerData[userId].godModeStartTime
 				if godModeDuration >= ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.MIN_GOD_MODE_DURATION and 
-				   playerData[userId].godModeViolations >= ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.VIOLATIONS_NEEDED then
+				   (playerData[userId].godModeViolations or 0) >= ANTI_CHEAT_CONFIG.GOD_MODE_DETECTION.VIOLATIONS_NEEDED then
 					local reason = string.format("God mode terdeteksi - Health: %.1f/%d (Excess: %.1f), Duration: %.1fs", 
 						humanoid.Health, humanoid.MaxHealth, healthExcess, godModeDuration)
 					kickPlayer(player, reason)
@@ -948,8 +948,8 @@ local function detectExecutor(player)
 	
 	-- Validasi: Harus multiple checks sebelum kick
 	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.REQUIRE_MULTIPLE_CHECKS then
-		if playerData[userId].executorChecks < ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.MIN_CHECKS_BEFORE_KICK then
-			playerData[userId].executorChecks = playerData[userId].executorChecks + 1
+		if (playerData[userId].executorChecks or 0) < ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.MIN_CHECKS_BEFORE_KICK then
+			playerData[userId].executorChecks = (playerData[userId].executorChecks or 0) + 1
 			playerData[userId].lastExecutorCheck = currentTime
 			return
 		end
@@ -1318,6 +1318,11 @@ print("")
 print("🔧 ERROR FIXED:")
 print("ClimbSpeed error telah diperbaiki - ClimbSpeed tidak ada di Humanoid versi baru Roblox")
 print("MovementDistance nil error telah diperbaiki dengan nil check")
+print("LastNoclipCheck nil error telah diperbaiki dengan nil check")
+print("LastCheckTime nil error telah diperbaiki dengan nil check")
+print("LastPosition nil error telah diperbaiki dengan nil check")
+print("ExecutorChecks nil error telah diperbaiki dengan nil check")
+print("Semua violations nil error telah diperbaiki dengan nil check")
 print("")
 print("🔧 COMMANDS UNTUK TEST WEBHOOK:")
 print("_G.UltimateAntiCheat.testDiscordWebhooks() - Test semua webhook")
