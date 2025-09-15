@@ -34,19 +34,19 @@ local ANTI_CHEAT_CONFIG = {
 		8326658094,
 	},
 
-	-- Fly Detection - Optimized untuk performa yang baik
+	-- Fly Detection - Ultra optimized untuk mengurangi ping
 	FLY_DETECTION = {
 		ENABLED = true,
 		MAX_SPEED = 50, -- Speed rendah untuk deteksi yang agresif
 		MAX_VERTICAL_SPEED = 30, -- Vertical speed rendah
-		CHECK_INTERVAL = 2.0, -- Check setiap 2 detik untuk performa
-		VIOLATIONS_NEEDED = 3, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 20.0, -- Check setiap 20 detik untuk mengurangi ping
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation sebelum kick untuk mengurangi false positive
 		DETECT_HOVERING = true, -- Enabled untuk deteksi hovering
 		DETECT_SUSPICIOUS_MOVEMENT = true, -- Enabled untuk deteksi movement mencurigakan
 		REQUIRE_CONSISTENT_FLYING = true, -- Perlu konsisten terbang
-		MIN_FLY_DURATION = 1.0, -- Minimal terbang 1 detik
+		MIN_FLY_DURATION = 3.0, -- Minimal terbang 3 detik
 		REQUIRE_AIR_TIME = true, -- Perlu air time
-		MIN_AIR_TIME = 0.5, -- Minimal di udara 0.5 detik
+		MIN_AIR_TIME = 2.0, -- Minimal di udara 2 detik
 	},
 
 	-- Speed Hack Detection - Threshold yang agresif untuk menangkap semua cheater
@@ -55,60 +55,60 @@ local ANTI_CHEAT_CONFIG = {
 		MAX_WALK_SPEED = 20, -- Walk speed rendah untuk deteksi yang agresif
 		MAX_JUMP_POWER = 60, -- Jump power rendah
 		MAX_CLIMB_SPEED = 20, -- Climb speed rendah (tidak digunakan karena error)
-		CHECK_INTERVAL = 2.0, -- Check setiap 2 detik untuk performa
-		VIOLATIONS_NEEDED = 2, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 20.0, -- Check setiap 20 detik untuk mengurangi ping
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation sebelum kick untuk mengurangi false positive
 		DETECT_INSTANT_CHANGES = true, -- Enabled untuk deteksi perubahan instant
 		DETECT_EXCESSIVE_VALUES = true, -- Deteksi semua nilai berlebihan
 		REQUIRE_CONSISTENT_SPEED = true, -- Perlu konsisten speed tinggi
-		MIN_SPEED_DURATION = 1.0, -- Minimal speed tinggi 1 detik
+		MIN_SPEED_DURATION = 3.0, -- Minimal speed tinggi 3 detik
 		REQUIRE_MOVEMENT = true, -- Perlu bergerak
-		MIN_MOVEMENT_DISTANCE = 10, -- Minimal jarak 10 studs
+		MIN_MOVEMENT_DISTANCE = 20, -- Minimal jarak 20 studs
 	},
 
 	-- Noclip Detection - Threshold yang agresif untuk menangkap semua cheater
 	NOCLIP_DETECTION = {
 		ENABLED = true, -- Enabled untuk deteksi noclip
-		CHECK_INTERVAL = 2.0, -- Check setiap 2 detik untuk performa
-		VIOLATIONS_NEEDED = 2, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 20.0, -- Check setiap 20 detik untuk mengurangi ping
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation sebelum kick untuk mengurangi false positive
 		DETECT_WALL_PHASING = true, -- Enabled untuk deteksi wall phasing
 		DETECT_GROUND_PHASING = true, -- Enabled untuk deteksi ground phasing
 		DETECT_OBJECT_PHASING = true, -- Enabled untuk deteksi object phasing
 		REQUIRE_MULTIPLE_PHASES = true, -- Perlu multiple phase
-		MIN_PHASE_DURATION = 1.0, -- Minimal phase 1 detik
+		MIN_PHASE_DURATION = 3.0, -- Minimal phase 3 detik
 	},
 
 	-- Teleport Detection - Threshold yang agresif untuk menangkap semua cheater
 	TELEPORT_DETECTION = {
 		ENABLED = true,
 		MAX_TELEPORT_DISTANCE = 50, -- Jarak rendah untuk deteksi yang agresif
-		CHECK_INTERVAL = 1.0, -- Check setiap 1 detik untuk performa
-		VIOLATIONS_NEEDED = 2, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 20.0, -- Check setiap 20 detik untuk mengurangi ping
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation sebelum kick untuk mengurangi false positive
 		DETECT_INSTANT_TELEPORT = true, -- Enabled untuk deteksi instant teleport
 		DETECT_SUSPICIOUS_POSITION = true, -- Enabled untuk deteksi posisi mencurigakan
 		REQUIRE_CONSISTENT_TELEPORT = true, -- Perlu konsisten teleport
-		MIN_TELEPORT_DISTANCE = 10, -- Minimal jarak untuk dianggap teleport
+		MIN_TELEPORT_DISTANCE = 20, -- Minimal jarak untuk dianggap teleport
 		REQUIRE_INSTANT_MOVEMENT = true, -- Perlu instant movement
-		MAX_MOVEMENT_TIME = 0.5, -- Maksimal waktu pergerakan 0.5 detik
+		MAX_MOVEMENT_TIME = 1.0, -- Maksimal waktu pergerakan 1 detik
 	},
 
 	-- Delete Part Detection - Threshold yang agresif untuk menangkap semua cheater
 	DELETE_PART_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 2.0, -- Check setiap 2 detik untuk performa
-		VIOLATIONS_NEEDED = 2, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 30.0, -- Check setiap 30 detik untuk mengurangi ping
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation sebelum kick untuk mengurangi false positive
 		DETECT_SUSPICIOUS_TOOLS = true, -- Deteksi semua tools mencurigakan
 		DETECT_MASS_DELETION = true, -- Enabled untuk deteksi mass deletion
 		DETECT_EXPLOIT_TOOLS = true, -- Deteksi semua tools dengan nama exploit
 		EXPLOIT_TOOL_NAMES = {"delete", "remove", "destroy", "exploit", "hack", "cheat", "bypass", "tool", "gun", "sword", "knife"}, -- Nama tools yang mencurigakan
 		REQUIRE_TOOL_USAGE = true, -- Perlu menggunakan tool
-		MIN_TOOL_USAGE_TIME = 1.0, -- Minimal menggunakan tool 1 detik
+		MIN_TOOL_USAGE_TIME = 3.0, -- Minimal menggunakan tool 3 detik
 	},
 
 	-- Auto Checkpoint Detection - Threshold yang agresif untuk menangkap semua cheater
 	AUTO_CHECKPOINT_DETECTION = {
 		ENABLED = true, -- Enabled untuk deteksi auto checkpoint
-		CHECK_INTERVAL = 2.0, -- Check setiap 2 detik untuk performa
-		VIOLATIONS_NEEDED = 2, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 30.0, -- Check setiap 30 detik untuk mengurangi ping
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation sebelum kick untuk mengurangi false positive
 		DETECT_RAPID_RESPAWN = true, -- Enabled untuk deteksi rapid respawn
 		DETECT_SUSPICIOUS_RESPAWN = true, -- Enabled untuk deteksi respawn mencurigakan
 	},
@@ -116,35 +116,35 @@ local ANTI_CHEAT_CONFIG = {
 	-- Invisibility Detection - Threshold yang agresif untuk menangkap semua cheater
 	INVISIBILITY_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 2.0, -- Check setiap 2 detik untuk performa
-		VIOLATIONS_NEEDED = 2, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 30.0, -- Check setiap 30 detik untuk mengurangi ping
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation sebelum kick untuk mengurangi false positive
 		DETECT_TRANSPARENCY_HACK = true,
 		MAX_TRANSPARENCY = 0.1, -- Sangat rendah untuk deteksi yang agresif
 		DETECT_INVISIBILITY_TOOLS = true, -- Enabled untuk deteksi invisibility tools
 		REQUIRE_CONSISTENT_INVISIBILITY = true, -- Perlu konsisten invisible
-		MIN_INVISIBILITY_DURATION = 1.0, -- Minimal invisible 1 detik
+		MIN_INVISIBILITY_DURATION = 3.0, -- Minimal invisible 3 detik
 		REQUIRE_ALL_PARTS_INVISIBLE = true, -- Perlu semua parts invisible
-		MIN_INVISIBLE_PARTS = 3, -- Minimal 3 parts invisible
+		MIN_INVISIBLE_PARTS = 5, -- Minimal 5 parts invisible
 	},
 
 	-- God Mode Detection - Threshold yang agresif untuk menangkap semua cheater
 	GOD_MODE_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 2.0, -- Check setiap 2 detik untuk performa
-		VIOLATIONS_NEEDED = 2, -- Lebih banyak violation sebelum kick
+		CHECK_INTERVAL = 30.0, -- Check setiap 30 detik untuk mengurangi ping
+		VIOLATIONS_NEEDED = 5, -- Lebih banyak violation sebelum kick untuk mengurangi false positive
 		DETECT_INFINITE_HEALTH = true,
 		DETECT_DAMAGE_IMMUNITY = true, -- Enabled untuk deteksi damage immunity
 		DETECT_HEALTH_HACK = true,
 		REQUIRE_CONSISTENT_GOD_MODE = true, -- Perlu konsisten god mode
-		MIN_GOD_MODE_DURATION = 1.0, -- Minimal god mode 1 detik
+		MIN_GOD_MODE_DURATION = 3.0, -- Minimal god mode 3 detik
 		REQUIRE_HEALTH_ABOVE_MAX = true, -- Perlu health di atas max
-		MIN_HEALTH_EXCESS = 10, -- Minimal health excess 10
+		MIN_HEALTH_EXCESS = 20, -- Minimal health excess 20
 	},
 
 	-- Executor Detection - ULTRA AGRESSIVE untuk pengguna login dengan executor
 	EXECUTOR_DETECTION = {
 		ENABLED = true,
-		CHECK_INTERVAL = 3.0, -- Check setiap 3 detik untuk performa yang optimal
+		CHECK_INTERVAL = 15.0, -- Check setiap 15 detik untuk mengurangi ping
 		VIOLATIONS_NEEDED = 1, -- Langsung kick karena jelas exploit
 		DETECT_DELTA_EXECUTOR = true,
 		DETECT_KRNL_EXECUTOR = true,
@@ -1247,50 +1247,59 @@ end
 -- Optimized Main Anti-cheat Loop untuk performa yang lebih baik
 local function startAntiCheat()
 	local lastCheck = 0
-	local checkInterval = 3.0 -- Check setiap 3 detik untuk performa yang optimal
+	local checkInterval = 10.0 -- Check setiap 10 detik untuk mengurangi ping
 	
 	RunService.Heartbeat:Connect(function()
 		local currentTime = tick()
 		
-		-- Check interval untuk performa yang optimal
+		-- Check interval untuk mengurangi ping
 		if currentTime - lastCheck < checkInterval then
 			return
 		end
 		
 		lastCheck = currentTime
 		
-		-- Optimized player checking dengan batch processing yang lebih efisien
+		-- Ultra optimized player checking untuk mengurangi ping
 		local players = Players:GetPlayers()
 		local playerCount = #players
 		
-		-- Process players in smaller batches untuk performa yang lebih baik
-		local batchSize = math.min(3, playerCount) -- Process maksimal 3 player per frame
+		-- Process hanya 1 player per frame untuk mengurangi ping
+		local batchSize = 1 -- Process hanya 1 player per frame untuk ping yang rendah
 		local startIndex = (currentTime % math.ceil(playerCount / batchSize)) * batchSize + 1
 		local endIndex = math.min(startIndex + batchSize - 1, playerCount)
 		
 		for i = startIndex, endIndex do
 			local player = players[i]
 			if player and not isPlayerProtected(player) then
-				-- Check detections dengan interval yang berbeda untuk performa optimal
-				if currentTime % 4 < 2 then -- Check setiap 4 detik (Group 1)
+				-- Check detections dengan interval yang sangat jarang untuk mengurangi ping
+				if currentTime % 20 < 5 then -- Check setiap 20 detik (Group 1)
 					spawn(function()
 						detectFly(player)
+					end)
+				elseif currentTime % 20 < 10 then -- Check setiap 20 detik (Group 2)
+					spawn(function()
 						detectSpeedHack(player)
 					end)
-				else -- Check setiap 4 detik (Group 2)
+				elseif currentTime % 20 < 15 then -- Check setiap 20 detik (Group 3)
 					spawn(function()
 						detectNoclip(player)
+					end)
+				else -- Check setiap 20 detik (Group 4)
+					spawn(function()
 						detectTeleport(player)
 					end)
 				end
 				
-				-- Check detections yang lebih jarang untuk performa optimal
-				if currentTime % 6 < 2 then -- Check setiap 6 detik (Group 3)
+				-- Check detections yang sangat jarang untuk mengurangi ping
+				if currentTime % 30 < 10 then -- Check setiap 30 detik (Group 5)
 					spawn(function()
 						detectDeletePart(player)
+					end)
+				elseif currentTime % 30 < 20 then -- Check setiap 30 detik (Group 6)
+					spawn(function()
 						detectInvisibility(player)
 					end)
-				elseif currentTime % 6 < 4 then -- Check setiap 6 detik (Group 4)
+				else -- Check setiap 30 detik (Group 7)
 					spawn(function()
 						detectGodMode(player)
 					end)
@@ -1303,30 +1312,30 @@ end
 -- OPTIMIZED Executor Detection Loop dengan debounce untuk performa yang lebih baik
 local function startExecutorDetection()
 	local lastExecutorCheck = 0
-	local executorCheckInterval = 3.0 -- Check setiap 3 detik untuk performa yang optimal
+	local executorCheckInterval = 15.0 -- Check setiap 15 detik untuk mengurangi ping
 	local executorDebounce = 0
 	
 	RunService.Heartbeat:Connect(function()
 		local currentTime = tick()
 		
 		-- Debounce untuk mencegah spam detection
-		if currentTime - executorDebounce < 0.2 then
+		if currentTime - executorDebounce < 1.0 then
 			return
 		end
 		
 		executorDebounce = currentTime
 		
-		-- Check interval untuk performa yang optimal
+		-- Check interval untuk mengurangi ping
 		if currentTime - lastExecutorCheck < executorCheckInterval then
 			return
 		end
 		
 		lastExecutorCheck = currentTime
 		
-		-- Process players in batches untuk performa yang lebih baik
+		-- Process hanya 1 player per frame untuk mengurangi ping
 		local players = Players:GetPlayers()
 		local playerCount = #players
-		local batchSize = math.min(2, playerCount) -- Process maksimal 2 player per frame untuk executor
+		local batchSize = 1 -- Process hanya 1 player per frame untuk ping yang rendah
 		
 		for i = 1, batchSize do
 			local player = players[i]
@@ -1371,9 +1380,9 @@ Players.PlayerAdded:Connect(function(player)
 	logViolation(player, "JOIN", "Player bergabung ke server", "INFO", "JOIN")
 	sendDiscordJoinLog(player)
 	
-	-- OPTIMIZED: Check executor saat player join dengan delay yang lebih lama untuk performa
+	-- ULTRA OPTIMIZED: Check executor saat player join dengan delay yang sangat lama untuk mengurangi ping
 	spawn(function()
-		wait(5) -- Tunggu 5 detik untuk memastikan player sudah fully loaded dan tidak memberatkan server
+		wait(30) -- Tunggu 30 detik untuk memastikan player sudah fully loaded dan mengurangi ping
 		detectExecutor(player)
 	end)
 end)
@@ -1387,10 +1396,10 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 -- Initialize Anti-cheat
--- Performance Monitoring
+-- Performance Monitoring - Ultra optimized untuk mengurangi ping
 local performanceStats = {
 	lastCleanup = 0,
-	cleanupInterval = 300, -- 5 menit
+	cleanupInterval = 600, -- 10 menit untuk mengurangi ping
 	totalChecks = 0,
 	totalDetections = 0
 }
@@ -1403,7 +1412,7 @@ local function cleanupOldData()
 	for userId, violations in pairs(violationHistory) do
 		local newViolations = {}
 		for _, violation in ipairs(violations) do
-			if currentTime - violation.timestamp < 3600 then -- Keep violations from last hour
+			if currentTime - violation.timestamp < 1800 then -- Keep violations from last 30 minutes
 				table.insert(newViolations, violation)
 			end
 		end
@@ -1414,21 +1423,21 @@ local function cleanupOldData()
 	for userId, punishments in pairs(punishmentHistory) do
 		local newPunishments = {}
 		for _, punishment in ipairs(punishments) do
-			if currentTime - punishment.timestamp < 3600 then -- Keep punishments from last hour
+			if currentTime - punishment.timestamp < 1800 then -- Keep punishments from last 30 minutes
 				table.insert(newPunishments, punishment)
 			end
 		end
 		punishmentHistory[userId] = newPunishments
 	end
 	
-	print("[ULTIMATE ANTI-CHEAT] 🧹 Cleanup completed - Performance optimized")
+	print("[ULTIMATE ANTI-CHEAT] 🧹 Cleanup completed - Ping optimized")
 end
 
--- Performance monitoring loop
+-- Performance monitoring loop dengan interval yang lebih jarang
 RunService.Heartbeat:Connect(function()
 	local currentTime = tick()
 	
-	-- Cleanup setiap 5 menit
+	-- Cleanup setiap 10 menit untuk mengurangi ping
 	if currentTime - performanceStats.lastCleanup > performanceStats.cleanupInterval then
 		performanceStats.lastCleanup = currentTime
 		spawn(cleanupOldData)
@@ -1799,17 +1808,18 @@ print("Executor Methods: 26+ metode executor")
 print("Executor Properties: 21+ properti executor")
 print("Executor Services: 14+ service executor")
 print("")
-print("⚡ ULTRA OPTIMIZED PERFORMANCE:")
-print("Main Loop: Check setiap 3 detik dengan batch processing (3 player/frame)")
-print("Executor Loop: Check setiap 3 detik untuk performa yang optimal")
-print("Player Join: Check executor 5 detik setelah join")
-print("Detection Groups: Group 1 (Fly/Speed), Group 2 (Noclip/Teleport), Group 3 (Delete/Invisibility), Group 4 (GodMode)")
-print("Debounce System: 0.2 detik debounce untuk mencegah spam detection")
+print("⚡ ULTRA PING OPTIMIZED PERFORMANCE:")
+print("Main Loop: Check setiap 10 detik dengan batch processing (1 player/frame)")
+print("Executor Loop: Check setiap 15 detik untuk mengurangi ping")
+print("Player Join: Check executor 30 detik setelah join")
+print("Detection Groups: Group 1 (Fly), Group 2 (Speed), Group 3 (Noclip), Group 4 (Teleport)")
+print("Detection Groups: Group 5 (Delete), Group 6 (Invisibility), Group 7 (GodMode)")
+print("Debounce System: 1.0 detik debounce untuk mengurangi ping")
 print("Spawn Functions: Semua deteksi menggunakan spawn untuk performa yang lebih baik")
-print("Check Intervals: Semua deteksi memiliki interval yang optimal")
-print("Performance Monitoring: Cleanup otomatis setiap 5 menit")
-print("Memory Management: Cleanup violation/punishment history setiap jam")
-print("Batch Processing: Maksimal 3 player per frame untuk main loop, 2 player untuk executor")
+print("Check Intervals: Semua deteksi memiliki interval yang sangat jarang")
+print("Performance Monitoring: Cleanup otomatis setiap 10 menit")
+print("Memory Management: Cleanup violation/punishment history setiap 30 menit")
+print("Batch Processing: Maksimal 1 player per frame untuk semua loop")
 print("")
 print("🔧 ERROR FIXED:")
 print("ClimbSpeed error telah diperbaiki - ClimbSpeed tidak ada di Humanoid versi baru Roblox")
@@ -1823,18 +1833,20 @@ print("String format error telah diperbaiki dengan nil check di semua fungsi")
 print("Player parameter nil error telah diperbaiki dengan error handling")
 print("Webhook test functions telah diperbaiki dengan parameter yang benar")
 print("")
-print("🚀 PERFORMANCE OPTIMIZATIONS:")
-print("Fly Detection: CHECK_INTERVAL 0.5s -> 2.0s, VIOLATIONS_NEEDED 2 -> 3")
-print("Speed Detection: CHECK_INTERVAL 0.5s -> 2.0s, VIOLATIONS_NEEDED 1 -> 2")
-print("Noclip Detection: CHECK_INTERVAL 0.5s -> 2.0s, VIOLATIONS_NEEDED 1 -> 2")
-print("Teleport Detection: CHECK_INTERVAL 0.1s -> 1.0s, VIOLATIONS_NEEDED 1 -> 2")
-print("Delete Detection: CHECK_INTERVAL 0.5s -> 2.0s, VIOLATIONS_NEEDED 1 -> 2")
-print("Invisibility Detection: CHECK_INTERVAL 0.5s -> 2.0s, VIOLATIONS_NEEDED 1 -> 2")
-print("God Mode Detection: CHECK_INTERVAL 0.5s -> 2.0s, VIOLATIONS_NEEDED 1 -> 2")
-print("Executor Detection: CHECK_INTERVAL 0.5s -> 3.0s untuk performa optimal")
-print("Main Loop: CHECK_INTERVAL 1.0s -> 3.0s, BATCH_SIZE 5 -> 3")
-print("Executor Loop: CHECK_INTERVAL 1.0s -> 3.0s, BATCH_SIZE unlimited -> 2")
-print("Player Join: DELAY 2s -> 5s untuk performa yang lebih baik")
+print("🚀 ULTRA PING OPTIMIZATIONS:")
+print("Fly Detection: CHECK_INTERVAL 2.0s -> 20.0s, VIOLATIONS_NEEDED 3 -> 5")
+print("Speed Detection: CHECK_INTERVAL 2.0s -> 20.0s, VIOLATIONS_NEEDED 2 -> 5")
+print("Noclip Detection: CHECK_INTERVAL 2.0s -> 20.0s, VIOLATIONS_NEEDED 2 -> 5")
+print("Teleport Detection: CHECK_INTERVAL 1.0s -> 20.0s, VIOLATIONS_NEEDED 2 -> 5")
+print("Delete Detection: CHECK_INTERVAL 2.0s -> 30.0s, VIOLATIONS_NEEDED 2 -> 5")
+print("Invisibility Detection: CHECK_INTERVAL 2.0s -> 30.0s, VIOLATIONS_NEEDED 2 -> 5")
+print("God Mode Detection: CHECK_INTERVAL 2.0s -> 30.0s, VIOLATIONS_NEEDED 2 -> 5")
+print("Executor Detection: CHECK_INTERVAL 3.0s -> 15.0s untuk mengurangi ping")
+print("Main Loop: CHECK_INTERVAL 3.0s -> 10.0s, BATCH_SIZE 3 -> 1")
+print("Executor Loop: CHECK_INTERVAL 3.0s -> 15.0s, BATCH_SIZE 2 -> 1")
+print("Player Join: DELAY 5s -> 30s untuk mengurangi ping")
+print("Performance Monitoring: CLEANUP_INTERVAL 5min -> 10min")
+print("Memory Management: CLEANUP_HISTORY 1hour -> 30min")
 print("")
 print("🔧 COMMANDS UNTUK TEST WEBHOOK:")
 print("_G.UltimateAntiCheat.testDiscordWebhooks() - Test semua webhook")
