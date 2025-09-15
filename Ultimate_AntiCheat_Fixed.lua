@@ -216,6 +216,7 @@ local ACTION_TYPES = {
 -- Discord Webhook Functions dengan detail lengkap
 local function sendDiscordCheatLog(player, cheatType, details, severity, action)
 	if not DISCORD_CONFIG.ENABLED or not DISCORD_CONFIG.CHEAT_WEBHOOK_URL then
+		print("[DISCORD CHEAT LOG] Discord logging dinonaktifkan atau webhook URL tidak ada")
 		return
 	end
 
@@ -224,17 +225,17 @@ local function sendDiscordCheatLog(player, cheatType, details, severity, action)
 	local playerId = player.UserId
 	local playerDisplayName = player.DisplayName ~= "" and player.DisplayName or player.Name
 
-	-- Create detailed message
+	-- Create simple message dengan 1 emoji saja
 	local message = string.format(
 		"🛡️ **ALERT ANTI-CHEAT**\n" ..
-		"**👤 Player:** %s (%s)\n" ..
-		"**🆔 ID:** %d\n" ..
-		"**⚡ Jenis Cheat:** %s\n" ..
-		"**🎯 Aksi:** %s\n" ..
-		"**📋 Detail:** %s\n" ..
-		"**🔍 Severity:** %s\n" ..
-		"**🖥️ Server:** %s\n" ..
-		"**⏰ Waktu:** %s",
+		"**Player:** %s (%s)\n" ..
+		"**ID:** %d\n" ..
+		"**Jenis Cheat:** %s\n" ..
+		"**Aksi:** %s\n" ..
+		"**Detail:** %s\n" ..
+		"**Severity:** %s\n" ..
+		"**Server:** %s\n" ..
+		"**Waktu:** %s",
 		playerDisplayName, playerName, playerId, 
 		CHEAT_TYPES[cheatType] or cheatType,
 		ACTION_TYPES[action] or action,
@@ -250,19 +251,21 @@ local function sendDiscordCheatLog(player, cheatType, details, severity, action)
 	spawn(function()
 		local success, response = pcall(function()
 			local jsonData = HttpService:JSONEncode(data)
-			return HttpService:PostAsync(DISCORD_CONFIG.CHEAT_WEBHOOK_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+			local result = HttpService:PostAsync(DISCORD_CONFIG.CHEAT_WEBHOOK_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+			return result
 		end)
 
 		if success then
-			print("[DISCORD CHEAT LOG] Webhook berhasil dikirim untuk:", player.Name)
+			print("[DISCORD CHEAT LOG] ✅ Webhook berhasil dikirim untuk:", player.Name)
 		else
-			print("[DISCORD CHEAT LOG] Gagal mengirim webhook:", response)
+			print("[DISCORD CHEAT LOG] ❌ Gagal mengirim webhook untuk", player.Name, "Error:", response)
 		end
 	end)
 end
 
 local function sendDiscordJoinLog(player)
 	if not DISCORD_CONFIG.ENABLED or not DISCORD_CONFIG.LOG_JOIN_LEAVE or not DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL then
+		print("[DISCORD JOIN LOG] Discord logging dinonaktifkan atau webhook URL tidak ada")
 		return
 	end
 
@@ -273,10 +276,10 @@ local function sendDiscordJoinLog(player)
 
 	local message = string.format(
 		"🟢 **PLAYER BERGABUNG**\n" ..
-		"**👤 Player:** %s (%s)\n" ..
-		"**🆔 ID:** %d\n" ..
-		"**🖥️ Server:** %s\n" ..
-		"**⏰ Waktu:** %s",
+		"**Player:** %s (%s)\n" ..
+		"**ID:** %d\n" ..
+		"**Server:** %s\n" ..
+		"**Waktu:** %s",
 		playerDisplayName, playerName, playerId, DISCORD_CONFIG.SERVER_NAME, currentTime
 	)
 
@@ -287,19 +290,21 @@ local function sendDiscordJoinLog(player)
 	spawn(function()
 		local success, response = pcall(function()
 			local jsonData = HttpService:JSONEncode(data)
-			return HttpService:PostAsync(DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+			local result = HttpService:PostAsync(DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+			return result
 		end)
 
 		if success then
-			print("[DISCORD JOIN LOG] Log join berhasil dikirim untuk:", player.Name)
+			print("[DISCORD JOIN LOG] ✅ Log join berhasil dikirim untuk:", player.Name)
 		else
-			print("[DISCORD JOIN LOG] Gagal mengirim webhook:", response)
+			print("[DISCORD JOIN LOG] ❌ Gagal mengirim webhook untuk", player.Name, "Error:", response)
 		end
 	end)
 end
 
 local function sendDiscordLeaveLog(player)
 	if not DISCORD_CONFIG.ENABLED or not DISCORD_CONFIG.LOG_JOIN_LEAVE or not DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL then
+		print("[DISCORD LEAVE LOG] Discord logging dinonaktifkan atau webhook URL tidak ada")
 		return
 	end
 
@@ -310,10 +315,10 @@ local function sendDiscordLeaveLog(player)
 
 	local message = string.format(
 		"🔴 **PLAYER KELUAR**\n" ..
-		"**👤 Player:** %s (%s)\n" ..
-		"**🆔 ID:** %d\n" ..
-		"**🖥️ Server:** %s\n" ..
-		"**⏰ Waktu:** %s",
+		"**Player:** %s (%s)\n" ..
+		"**ID:** %d\n" ..
+		"**Server:** %s\n" ..
+		"**Waktu:** %s",
 		playerDisplayName, playerName, playerId, DISCORD_CONFIG.SERVER_NAME, currentTime
 	)
 
@@ -324,13 +329,14 @@ local function sendDiscordLeaveLog(player)
 	spawn(function()
 		local success, response = pcall(function()
 			local jsonData = HttpService:JSONEncode(data)
-			return HttpService:PostAsync(DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+			local result = HttpService:PostAsync(DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+			return result
 		end)
 
 		if success then
-			print("[DISCORD LEAVE LOG] Log leave berhasil dikirim untuk:", player.Name)
+			print("[DISCORD LEAVE LOG] ✅ Log leave berhasil dikirim untuk:", player.Name)
 		else
-			print("[DISCORD LEAVE LOG] Gagal mengirim webhook:", response)
+			print("[DISCORD LEAVE LOG] ❌ Gagal mengirim webhook untuk", player.Name, "Error:", response)
 		end
 	end)
 end
@@ -948,9 +954,21 @@ _G.UltimateAntiCheat = {
 		return #violationHistory[userId]
 	end,
 	testDiscordWebhooks = function()
+		print("[ULTIMATE ANTI-CHEAT] 🔧 Memulai test Discord webhooks...")
+		
 		if not DISCORD_CONFIG.ENABLED then
-			print("[ULTIMATE ANTI-CHEAT] Discord logging dinonaktifkan!")
-			return
+			print("[ULTIMATE ANTI-CHEAT] ❌ Discord logging dinonaktifkan!")
+			return false
+		end
+
+		if not DISCORD_CONFIG.CHEAT_WEBHOOK_URL then
+			print("[ULTIMATE ANTI-CHEAT] ❌ Cheat webhook URL tidak ada!")
+			return false
+		end
+
+		if not DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL then
+			print("[ULTIMATE ANTI-CHEAT] ❌ Join/Leave webhook URL tidak ada!")
+			return false
 		end
 
 		local testPlayer = {
@@ -959,14 +977,160 @@ _G.UltimateAntiCheat = {
 			DisplayName = "Test Player"
 		}
 
-		sendDiscordCheatLog(testPlayer, "TEST", "Test Discord cheat webhook", "INFO", "TEST")
-		print("[ULTIMATE ANTI-CHEAT] Test cheat webhook dikirim!")
-
+		print("[ULTIMATE ANTI-CHEAT] 📤 Mengirim test cheat webhook...")
+		sendDiscordCheatLog(testPlayer, "TEST", "Test Discord cheat webhook - Jika Anda melihat ini, webhook berfungsi!", "INFO", "TEST")
+		
+		wait(1)
+		
+		print("[ULTIMATE ANTI-CHEAT] 📤 Mengirim test join webhook...")
 		sendDiscordJoinLog(testPlayer)
+		
 		wait(2)
+		
+		print("[ULTIMATE ANTI-CHEAT] 📤 Mengirim test leave webhook...")
 		sendDiscordLeaveLog(testPlayer)
-		print("[ULTIMATE ANTI-CHEAT] Test join/leave webhook dikirim!")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ Test webhook selesai! Cek Discord channel Anda.")
+		return true
+	end,
+	
+	testCheatWebhookOnly = function()
+		print("[ULTIMATE ANTI-CHEAT] 🔧 Memulai test cheat webhook saja...")
+		
+		if not DISCORD_CONFIG.ENABLED then
+			print("[ULTIMATE ANTI-CHEAT] ❌ Discord logging dinonaktifkan!")
+			return false
+		end
+
+		if not DISCORD_CONFIG.CHEAT_WEBHOOK_URL then
+			print("[ULTIMATE ANTI-CHEAT] ❌ Cheat webhook URL tidak ada!")
+			return false
+		end
+
+		local testPlayer = {
+			Name = "TestPlayer",
+			UserId = 123456789,
+			DisplayName = "Test Player"
+		}
+
+		print("[ULTIMATE ANTI-CHEAT] 📤 Mengirim test cheat webhook...")
+		sendDiscordCheatLog(testPlayer, "TEST", "Test Discord cheat webhook - Jika Anda melihat ini, cheat webhook berfungsi!", "INFO", "TEST")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ Test cheat webhook selesai! Cek Discord channel Anda.")
+		return true
+	end,
+	
+	testJoinLeaveWebhookOnly = function()
+		print("[ULTIMATE ANTI-CHEAT] 🔧 Memulai test join/leave webhook saja...")
+		
+		if not DISCORD_CONFIG.ENABLED then
+			print("[ULTIMATE ANTI-CHEAT] ❌ Discord logging dinonaktifkan!")
+			return false
+		end
+
+		if not DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL then
+			print("[ULTIMATE ANTI-CHEAT] ❌ Join/Leave webhook URL tidak ada!")
+			return false
+		end
+
+		local testPlayer = {
+			Name = "TestPlayer",
+			UserId = 123456789,
+			DisplayName = "Test Player"
+		}
+
+		print("[ULTIMATE ANTI-CHEAT] 📤 Mengirim test join webhook...")
+		sendDiscordJoinLog(testPlayer)
+		
+		wait(1)
+		
+		print("[ULTIMATE ANTI-CHEAT] 📤 Mengirim test leave webhook...")
+		sendDiscordLeaveLog(testPlayer)
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ Test join/leave webhook selesai! Cek Discord channel Anda.")
+		return true
+	end,
+	
+	checkWebhookStatus = function()
+		print("[ULTIMATE ANTI-CHEAT] 🔍 Mengecek status webhook...")
+		
+		print("Discord Config Status:")
+		print("- ENABLED:", DISCORD_CONFIG.ENABLED)
+		print("- LOG_ALL_VIOLATIONS:", DISCORD_CONFIG.LOG_ALL_VIOLATIONS)
+		print("- LOG_KICKS_ONLY:", DISCORD_CONFIG.LOG_KICKS_ONLY)
+		print("- LOG_WARNINGS:", DISCORD_CONFIG.LOG_WARNINGS)
+		print("- LOG_JOIN_LEAVE:", DISCORD_CONFIG.LOG_JOIN_LEAVE)
+		print("- SERVER_NAME:", DISCORD_CONFIG.SERVER_NAME)
+		
+		print("\nWebhook URLs:")
+		print("- Cheat Webhook:", DISCORD_CONFIG.CHEAT_WEBHOOK_URL and "✅ Ada" or "❌ Tidak ada")
+		print("- Join/Leave Webhook:", DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL and "✅ Ada" or "❌ Tidak ada")
+		
+		if DISCORD_CONFIG.ENABLED and DISCORD_CONFIG.CHEAT_WEBHOOK_URL and DISCORD_CONFIG.JOIN_LEAVE_WEBHOOK_URL then
+			print("\n✅ Semua webhook siap digunakan!")
+			return true
+		else
+			print("\n❌ Ada masalah dengan konfigurasi webhook!")
+			return false
+		end
+	end,
+	
+	forceTestCheatLog = function(playerName, cheatType)
+		print("[ULTIMATE ANTI-CHEAT] 🔧 Memaksa test cheat log...")
+		
+		if not DISCORD_CONFIG.ENABLED then
+			print("[ULTIMATE ANTI-CHEAT] ❌ Discord logging dinonaktifkan!")
+			return false
+		end
+
+		if not DISCORD_CONFIG.CHEAT_WEBHOOK_URL then
+			print("[ULTIMATE ANTI-CHEAT] ❌ Cheat webhook URL tidak ada!")
+			return false
+		end
+
+		local testPlayer = {
+			Name = playerName or "TestPlayer",
+			UserId = 123456789,
+			DisplayName = playerName or "Test Player"
+		}
+
+		local cheatTypeToTest = cheatType or "FLY"
+		print("[ULTIMATE ANTI-CHEAT] 📤 Mengirim test cheat log untuk:", cheatTypeToTest)
+		sendDiscordCheatLog(testPlayer, cheatTypeToTest, "Test paksa cheat log - Jika Anda melihat ini, cheat webhook berfungsi!", "HIGH", "KICK")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ Test cheat log selesai! Cek Discord channel Anda.")
+		return true
+	end,
+	
+	enableDiscordLogging = function()
+		DISCORD_CONFIG.ENABLED = true
+		print("[ULTIMATE ANTI-CHEAT] ✅ Discord logging diaktifkan!")
+	end,
+	
+	disableDiscordLogging = function()
+		DISCORD_CONFIG.ENABLED = false
+		print("[ULTIMATE ANTI-CHEAT] ❌ Discord logging dinonaktifkan!")
 	end
 }
 
 print("[ULTIMATE ANTI-CHEAT] Sistem anti-cheat ultimate dengan NO FALSE POSITIVE berhasil dimuat!")
+print("")
+print("🔧 COMMANDS UNTUK TEST WEBHOOK:")
+print("_G.UltimateAntiCheat.testDiscordWebhooks() - Test semua webhook")
+print("_G.UltimateAntiCheat.testCheatWebhookOnly() - Test cheat webhook saja")
+print("_G.UltimateAntiCheat.testJoinLeaveWebhookOnly() - Test join/leave webhook saja")
+print("_G.UltimateAntiCheat.checkWebhookStatus() - Cek status webhook")
+print("_G.UltimateAntiCheat.forceTestCheatLog('PlayerName', 'FLY') - Paksa test cheat log")
+print("_G.UltimateAntiCheat.enableDiscordLogging() - Aktifkan Discord logging")
+print("_G.UltimateAntiCheat.disableDiscordLogging() - Nonaktifkan Discord logging")
+print("")
+print("📋 CARA PENGGUNAAN:")
+print("1. Jalankan: _G.UltimateAntiCheat.checkWebhookStatus()")
+print("2. Jika ada masalah, jalankan: _G.UltimateAntiCheat.testDiscordWebhooks()")
+print("3. Cek Discord channel Anda untuk melihat log")
+print("")
+print("🛡️ EMOJI YANG DIGUNAKAN:")
+print("🛡️ = Cheat Alert (Tameng Proteksi)")
+print("🟢 = Player Join (Hijau)")
+print("🔴 = Player Leave (Merah)")
+print("")
