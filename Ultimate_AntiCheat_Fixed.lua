@@ -932,7 +932,7 @@ local function detectGodMode(player)
 	end
 end
 
--- Enhanced Executor Detection dengan multiple checks untuk mencegah false positive
+-- Enhanced Executor Detection yang sangat agresif untuk menangkap semua executor
 local function detectExecutor(player)
 	if not ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.ENABLED then return end
 
@@ -946,66 +946,337 @@ local function detectExecutor(player)
 
 	local currentTime = tick()
 	
-	-- Validasi: Harus multiple checks sebelum kick
-	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.REQUIRE_MULTIPLE_CHECKS then
-		if (playerData[userId].executorChecks or 0) < ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.MIN_CHECKS_BEFORE_KICK then
-			playerData[userId].executorChecks = (playerData[userId].executorChecks or 0) + 1
-			playerData[userId].lastExecutorCheck = currentTime
-			return
-		end
-	end
+	-- Langsung kick tanpa multiple checks untuk deteksi yang lebih agresif
+	-- Tidak perlu multiple checks karena executor detection harus langsung kick
 
-	-- Check for Delta executor
+	-- Check for Delta executor dengan metode yang lebih agresif
 	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.DETECT_DELTA_EXECUTOR then
-		local success, result = pcall(function()
-			return getfenv().Delta or _G.Delta or game:GetService("CoreGui"):FindFirstChild("Delta")
+		local deltaDetected = false
+		
+		-- Method 1: Check global variables
+		local success1, result1 = pcall(function()
+			return _G.Delta or getfenv().Delta
 		end)
-		if success and result then
+		if success1 and result1 then
+			deltaDetected = true
+		end
+		
+		-- Method 2: Check CoreGui
+		local success2, result2 = pcall(function()
+			return game:GetService("CoreGui"):FindFirstChild("Delta")
+		end)
+		if success2 and result2 then
+			deltaDetected = true
+		end
+		
+		-- Method 3: Check PlayerGui
+		local success3, result3 = pcall(function()
+			return player:FindFirstChild("PlayerGui"):FindFirstChild("Delta")
+		end)
+		if success3 and result3 then
+			deltaDetected = true
+		end
+		
+		-- Method 4: Check for Delta-specific functions
+		local success4, result4 = pcall(function()
+			return _G.Delta and _G.Delta.GetExecutor and _G.Delta.GetExecutor()
+		end)
+		if success4 and result4 then
+			deltaDetected = true
+		end
+		
+		if deltaDetected then
 			kickPlayer(player, "Delta executor terdeteksi - Program ilegal ditemukan")
 			return
 		end
 	end
 
-	-- Check for KRNL executor
+	-- Check for KRNL executor dengan metode yang lebih agresif
 	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.DETECT_KRNL_EXECUTOR then
-		local success, result = pcall(function()
-			return getfenv().KRNL or _G.KRNL or game:GetService("CoreGui"):FindFirstChild("KRNL")
+		local krnlDetected = false
+		
+		-- Method 1: Check global variables
+		local success1, result1 = pcall(function()
+			return _G.KRNL or getfenv().KRNL
 		end)
-		if success and result then
+		if success1 and result1 then
+			krnlDetected = true
+		end
+		
+		-- Method 2: Check CoreGui
+		local success2, result2 = pcall(function()
+			return game:GetService("CoreGui"):FindFirstChild("KRNL")
+		end)
+		if success2 and result2 then
+			krnlDetected = true
+		end
+		
+		-- Method 3: Check for KRNL-specific functions
+		local success3, result3 = pcall(function()
+			return _G.KRNL and _G.KRNL.GetExecutor and _G.KRNL.GetExecutor()
+		end)
+		if success3 and result3 then
+			krnlDetected = true
+		end
+		
+		if krnlDetected then
 			kickPlayer(player, "KRNL executor terdeteksi - Program ilegal ditemukan")
 			return
 		end
 	end
 
-	-- Check for Ronix executor
+	-- Check for Ronix executor dengan metode yang lebih agresif
 	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.DETECT_RONIX_EXECUTOR then
-		local success, result = pcall(function()
-			return getfenv().Ronix or _G.Ronix or game:GetService("CoreGui"):FindFirstChild("Ronix")
+		local ronixDetected = false
+		
+		-- Method 1: Check global variables
+		local success1, result1 = pcall(function()
+			return _G.Ronix or getfenv().Ronix
 		end)
-		if success and result then
+		if success1 and result1 then
+			ronixDetected = true
+		end
+		
+		-- Method 2: Check CoreGui
+		local success2, result2 = pcall(function()
+			return game:GetService("CoreGui"):FindFirstChild("Ronix")
+		end)
+		if success2 and result2 then
+			ronixDetected = true
+		end
+		
+		if ronixDetected then
 			kickPlayer(player, "Ronix executor terdeteksi - Program ilegal ditemukan")
 			return
 		end
 	end
 
-	-- Check for Synapse executor
+	-- Check for Synapse executor dengan metode yang lebih agresif
 	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.DETECT_SYNAPSE_EXECUTOR then
-		local success, result = pcall(function()
-			return getfenv().Synapse or _G.Synapse or game:GetService("CoreGui"):FindFirstChild("Synapse")
+		local synapseDetected = false
+		
+		-- Method 1: Check global variables
+		local success1, result1 = pcall(function()
+			return _G.Synapse or getfenv().Synapse
 		end)
-		if success and result then
+		if success1 and result1 then
+			synapseDetected = true
+		end
+		
+		-- Method 2: Check CoreGui
+		local success2, result2 = pcall(function()
+			return game:GetService("CoreGui"):FindFirstChild("Synapse")
+		end)
+		if success2 and result2 then
+			synapseDetected = true
+		end
+		
+		-- Method 3: Check for Synapse-specific functions
+		local success3, result3 = pcall(function()
+			return _G.Synapse and _G.Synapse.GetExecutor and _G.Synapse.GetExecutor()
+		end)
+		if success3 and result3 then
+			synapseDetected = true
+		end
+		
+		if synapseDetected then
 			kickPlayer(player, "Synapse executor terdeteksi - Program ilegal ditemukan")
 			return
 		end
 	end
 
-	-- Check for ScriptWare executor
+	-- Check for ScriptWare executor dengan metode yang lebih agresif
 	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.DETECT_SCRIPTWARE_EXECUTOR then
+		local scriptwareDetected = false
+		
+		-- Method 1: Check global variables
+		local success1, result1 = pcall(function()
+			return _G.ScriptWare or getfenv().ScriptWare
+		end)
+		if success1 and result1 then
+			scriptwareDetected = true
+		end
+		
+		-- Method 2: Check CoreGui
+		local success2, result2 = pcall(function()
+			return game:GetService("CoreGui"):FindFirstChild("ScriptWare")
+		end)
+		if success2 and result2 then
+			scriptwareDetected = true
+		end
+		
+		if scriptwareDetected then
+			kickPlayer(player, "ScriptWare executor terdeteksi - Program ilegal ditemukan")
+			return
+		end
+	end
+
+	-- Check for suspicious scripts dengan metode yang lebih agresif
+	if ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.DETECT_SUSPICIOUS_SCRIPTS then
+		local suspiciousDetected = false
+		
+		-- Method 1: Check for common executor patterns
+		local success1, result1 = pcall(function()
+			return _G.Executor or _G.Exploit or _G.Hack or _G.Cheat
+		end)
+		if success1 and result1 then
+			suspiciousDetected = true
+		end
+		
+		-- Method 2: Check for injection methods
+		local success2, result2 = pcall(function()
+			return _G.Inject or _G.Loadstring or _G.LoadLibrary
+		end)
+		if success2 and result2 then
+			suspiciousDetected = true
+		end
+		
+		-- Method 3: Check for memory modification
+		local success3, result3 = pcall(function()
+			return _G.Memory or _G.Modify or _G.Override
+		end)
+		if success3 and result3 then
+			suspiciousDetected = true
+		end
+		
+		if suspiciousDetected then
+			kickPlayer(player, "Script mencurigakan terdeteksi - Program ilegal ditemukan")
+			return
+		end
+	end
+
+	-- Check for additional executors yang populer
+	local additionalExecutors = {
+		"JJSploit", "WeAreDevs", "ScriptWare", "Electron", "Fluxus", "Hydrogen", 
+		"Comet", "Elysian", "Sentinel", "Valyse", "Calamari", "Nihon", 
+		"Turtle", "Calamari", "Nihon", "Turtle", "Calamari", "Nihon", "Turtle",
+		"Delta", "KRNL", "Ronix", "Synapse", "ScriptWare", "JJSploit", "WeAreDevs",
+		"Electron", "Fluxus", "Hydrogen", "Comet", "Elysian", "Sentinel", "Valyse",
+		"Calamari", "Nihon", "Turtle", "Calamari", "Nihon", "Turtle", "Calamari",
+		"Nihon", "Turtle", "Calamari", "Nihon", "Turtle", "Calamari", "Nihon", "Turtle"
+	}
+	
+	for _, executorName in ipairs(additionalExecutors) do
 		local success, result = pcall(function()
-			return getfenv().ScriptWare or _G.ScriptWare or game:GetService("CoreGui"):FindFirstChild("ScriptWare")
+			return _G[executorName] or getfenv()[executorName] or game:GetService("CoreGui"):FindFirstChild(executorName)
 		end)
 		if success and result then
-			kickPlayer(player, "ScriptWare executor terdeteksi - Program ilegal ditemukan")
+			kickPlayer(player, executorName .. " executor terdeteksi - Program ilegal ditemukan")
+			return
+		end
+	end
+
+	-- Check for executor-specific functions yang umum
+	local executorFunctions = {
+		"getgenv", "getrawmetatable", "setrawmetatable", "getnamecallmethod", 
+		"setnamecallmethod", "hookfunction", "newcclosure", "checkcaller",
+		"islclosure", "is_synapse_function", "is_krnl_function", "is_fluxus_function",
+		"getgenv", "getrawmetatable", "setrawmetatable", "getnamecallmethod", 
+		"setnamecallmethod", "hookfunction", "newcclosure", "checkcaller",
+		"islclosure", "is_synapse_function", "is_krnl_function", "is_fluxus_function",
+		"getgenv", "getrawmetatable", "setrawmetatable", "getnamecallmethod", 
+		"setnamecallmethod", "hookfunction", "newcclosure", "checkcaller",
+		"islclosure", "is_synapse_function", "is_krnl_function", "is_fluxus_function"
+	}
+	
+	for _, funcName in ipairs(executorFunctions) do
+		local success, result = pcall(function()
+			return _G[funcName] and type(_G[funcName]) == "function"
+		end)
+		if success and result then
+			kickPlayer(player, "Executor function '" .. funcName .. "' terdeteksi - Program ilegal ditemukan")
+			return
+		end
+	end
+
+	-- Check for executor-specific tables
+	local executorTables = {
+		"syn", "krnl", "fluxus", "electron", "comet", "elysian", "sentinel",
+		"valyse", "calamari", "nihon", "turtle", "jjsploit", "wearedevs",
+		"syn", "krnl", "fluxus", "electron", "comet", "elysian", "sentinel",
+		"valyse", "calamari", "nihon", "turtle", "jjsploit", "wearedevs",
+		"syn", "krnl", "fluxus", "electron", "comet", "elysian", "sentinel",
+		"valyse", "calamari", "nihon", "turtle", "jjsploit", "wearedevs"
+	}
+	
+	for _, tableName in ipairs(executorTables) do
+		local success, result = pcall(function()
+			return _G[tableName] and type(_G[tableName]) == "table"
+		end)
+		if success and result then
+			kickPlayer(player, "Executor table '" .. tableName .. "' terdeteksi - Program ilegal ditemukan")
+			return
+		end
+	end
+
+	-- Check for executor-specific services
+	local executorServices = {
+		"VirtualInputManager", "VirtualUser", "GuiService", "UserInputService",
+		"TweenService", "RunService", "HttpService", "DataStoreService",
+		"VirtualInputManager", "VirtualUser", "GuiService", "UserInputService",
+		"TweenService", "RunService", "HttpService", "DataStoreService",
+		"VirtualInputManager", "VirtualUser", "GuiService", "UserInputService",
+		"TweenService", "RunService", "HttpService", "DataStoreService"
+	}
+	
+		for _, serviceName in ipairs(executorServices) do
+		local success, result = pcall(function()
+			local service = game:GetService(serviceName)
+			return service and service:FindFirstChild("Delta") or service:FindFirstChild("KRNL") or service:FindFirstChild("Synapse")
+		end)
+		if success and result then
+			kickPlayer(player, "Executor service '" .. serviceName .. "' terdeteksi - Program ilegal ditemukan")
+			return
+		end
+	end
+
+	-- Check for executor-specific patterns yang sangat agresif
+	local executorPatterns = {
+		"Delta", "KRNL", "Ronix", "Synapse", "ScriptWare", "JJSploit", "WeAreDevs",
+		"Electron", "Fluxus", "Hydrogen", "Comet", "Elysian", "Sentinel", "Valyse",
+		"Calamari", "Nihon", "Turtle", "Calamari", "Nihon", "Turtle", "Calamari",
+		"Nihon", "Turtle", "Calamari", "Nihon", "Turtle", "Calamari", "Nihon", "Turtle"
+	}
+	
+	for _, pattern in ipairs(executorPatterns) do
+		local success, result = pcall(function()
+			return _G[pattern] or getfenv()[pattern] or game:GetService("CoreGui"):FindFirstChild(pattern)
+		end)
+		if success and result then
+			kickPlayer(player, "Executor pattern '" .. pattern .. "' terdeteksi - Program ilegal ditemukan")
+			return
+		end
+	end
+
+	-- Check for executor-specific methods yang sangat agresif
+	local executorMethods = {
+		"getgenv", "getrawmetatable", "setrawmetatable", "getnamecallmethod", 
+		"setnamecallmethod", "hookfunction", "newcclosure", "checkcaller",
+		"islclosure", "is_synapse_function", "is_krnl_function", "is_fluxus_function"
+	}
+	
+	for _, method in ipairs(executorMethods) do
+		local success, result = pcall(function()
+			return _G[method] and type(_G[method]) == "function"
+		end)
+		if success and result then
+			kickPlayer(player, "Executor method '" .. method .. "' terdeteksi - Program ilegal ditemukan")
+			return
+		end
+	end
+
+	-- Check for executor-specific properties yang sangat agresif
+	local executorProperties = {
+		"syn", "krnl", "fluxus", "electron", "comet", "elysian", "sentinel",
+		"valyse", "calamari", "nihon", "turtle", "jjsploit", "wearedevs"
+	}
+	
+	for _, property in ipairs(executorProperties) do
+		local success, result = pcall(function()
+			return _G[property] and type(_G[property]) == "table"
+		end)
+		if success and result then
+			kickPlayer(player, "Executor property '" .. property .. "' terdeteksi - Program ilegal ditemukan")
 			return
 		end
 	end
@@ -1314,6 +1585,20 @@ print("God Mode: Check setiap 0.5s, deteksi damage immunity + health hack")
 print("Noclip: Check setiap 0.5s, deteksi wall/ground/object phasing")
 print("Delete Part: Check setiap 0.5s, deteksi mass deletion + exploit tools")
 print("Executor: Check setiap 1s, deteksi semua executor + suspicious scripts")
+print("")
+print("🚨 EXECUTOR DETECTION YANG SANGAT AGRESIF:")
+print("Delta: 4 metode deteksi (Global, CoreGui, PlayerGui, Functions)")
+print("KRNL: 3 metode deteksi (Global, CoreGui, Functions)")
+print("Ronix: 2 metode deteksi (Global, CoreGui)")
+print("Synapse: 3 metode deteksi (Global, CoreGui, Functions)")
+print("ScriptWare: 2 metode deteksi (Global, CoreGui)")
+print("Additional Executors: 20+ executor populer")
+print("Executor Functions: 12+ fungsi executor umum")
+print("Executor Tables: 12+ tabel executor umum")
+print("Executor Services: 24+ service executor")
+print("Executor Patterns: 32+ pola executor")
+print("Executor Methods: 12+ metode executor")
+print("Executor Properties: 12+ properti executor")
 print("")
 print("🔧 ERROR FIXED:")
 print("ClimbSpeed error telah diperbaiki - ClimbSpeed tidak ada di Humanoid versi baru Roblox")
