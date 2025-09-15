@@ -932,7 +932,7 @@ local function detectGodMode(player)
 	end
 end
 
--- ULTRA AGRESSIVE Executor Detection untuk pengguna login dengan executor
+-- OPTIMIZED Executor Detection dengan debounce dan deteksi yang lebih efektif
 local function detectExecutor(player)
 	if not ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.ENABLED then return end
 
@@ -940,11 +940,19 @@ local function detectExecutor(player)
 	if not playerData[userId] then
 		playerData[userId] = {
 			executorChecks = 0,
-			lastExecutorCheck = 0
+			lastExecutorCheck = 0,
+			executorDebounce = 0
 		}
 	end
 
 	local currentTime = tick()
+	
+	-- Debounce untuk mencegah spam detection
+	if currentTime - (playerData[userId].executorDebounce or 0) < 0.1 then
+		return
+	end
+	
+	playerData[userId].executorDebounce = currentTime
 	
 	-- Check interval untuk performa
 	if currentTime - (playerData[userId].lastExecutorCheck or 0) < ANTI_CHEAT_CONFIG.EXECUTOR_DETECTION.CHECK_INTERVAL then
@@ -953,16 +961,16 @@ local function detectExecutor(player)
 	
 	playerData[userId].lastExecutorCheck = currentTime
 
-	-- ULTRA AGRESSIVE executor detection - langsung kick tanpa delay
+	-- OPTIMIZED executor detection dengan metode yang paling efektif
 	local executorsToCheck = {
 		"Delta", "KRNL", "Synapse", "ScriptWare", "Ronix", "Fluxus", "Electron", "Comet", 
 		"Elysian", "Sentinel", "Valyse", "Calamari", "Nihon", "Turtle", "JJSploit", 
-		"WeAreDevs", "Hydrogen", "Calamari", "Nihon", "Turtle", "Calamari", "Nihon", "Turtle"
+		"WeAreDevs", "Hydrogen", "Calamari", "Nihon", "Turtle"
 	}
 
-	-- Check semua executor dengan metode yang sangat agresif
+	-- Check semua executor dengan metode yang paling efektif
 	for _, executorName in ipairs(executorsToCheck) do
-		-- Method 1: Check _G
+		-- Method 1: Check _G dengan debounce
 		local success1, result1 = pcall(function()
 			return _G[executorName]
 		end)
@@ -971,7 +979,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 2: Check getfenv
+		-- Method 2: Check getfenv dengan debounce
 		local success2, result2 = pcall(function()
 			return getfenv()[executorName]
 		end)
@@ -980,7 +988,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 3: Check CoreGui
+		-- Method 3: Check CoreGui dengan debounce
 		local success3, result3 = pcall(function()
 			return game:GetService("CoreGui"):FindFirstChild(executorName)
 		end)
@@ -989,7 +997,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 4: Check PlayerGui
+		-- Method 4: Check PlayerGui dengan debounce
 		local success4, result4 = pcall(function()
 			return player:FindFirstChild("PlayerGui") and player.PlayerGui:FindFirstChild(executorName)
 		end)
@@ -998,7 +1006,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 5: Check StarterGui
+		-- Method 5: Check StarterGui dengan debounce
 		local success5, result5 = pcall(function()
 			return game:GetService("StarterGui"):FindFirstChild(executorName)
 		end)
@@ -1007,7 +1015,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 6: Check StarterPack
+		-- Method 6: Check StarterPack dengan debounce
 		local success6, result6 = pcall(function()
 			return game:GetService("StarterPack"):FindFirstChild(executorName)
 		end)
@@ -1016,7 +1024,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 7: Check StarterPlayer
+		-- Method 7: Check StarterPlayer dengan debounce
 		local success7, result7 = pcall(function()
 			return game:GetService("StarterPlayer"):FindFirstChild(executorName)
 		end)
@@ -1025,7 +1033,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 8: Check Workspace
+		-- Method 8: Check Workspace dengan debounce
 		local success8, result8 = pcall(function()
 			return workspace:FindFirstChild(executorName)
 		end)
@@ -1034,7 +1042,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 9: Check ServerStorage
+		-- Method 9: Check ServerStorage dengan debounce
 		local success9, result9 = pcall(function()
 			return game:GetService("ServerStorage"):FindFirstChild(executorName)
 		end)
@@ -1043,7 +1051,7 @@ local function detectExecutor(player)
 			return
 		end
 
-		-- Method 10: Check ReplicatedStorage
+		-- Method 10: Check ReplicatedStorage dengan debounce
 		local success10, result10 = pcall(function()
 			return game:GetService("ReplicatedStorage"):FindFirstChild(executorName)
 		end)
@@ -1053,7 +1061,7 @@ local function detectExecutor(player)
 		end
 	end
 
-	-- Check untuk executor functions yang sangat agresif
+	-- Check untuk executor functions yang paling efektif
 	local executorFunctions = {
 		"getgenv", "getrawmetatable", "setrawmetatable", "getnamecallmethod", 
 		"setnamecallmethod", "hookfunction", "newcclosure", "checkcaller",
@@ -1072,7 +1080,7 @@ local function detectExecutor(player)
 		end
 	end
 
-	-- Check untuk executor tables yang sangat agresif
+	-- Check untuk executor tables yang paling efektif
 	local executorTables = {
 		"syn", "krnl", "fluxus", "electron", "comet", "elysian", "sentinel",
 		"valyse", "calamari", "nihon", "turtle", "jjsploit", "wearedevs",
@@ -1089,7 +1097,7 @@ local function detectExecutor(player)
 		end
 	end
 
-	-- Check untuk suspicious patterns yang sangat agresif
+	-- Check untuk suspicious patterns yang paling efektif
 	local suspiciousPatterns = {
 		"Executor", "Exploit", "Hack", "Cheat", "Inject", "Loadstring", "LoadLibrary",
 		"Script", "Tool", "Gun", "Sword", "Knife", "Weapon", "Aimbot", "Wallhack",
@@ -1106,7 +1114,7 @@ local function detectExecutor(player)
 		end
 	end
 
-	-- Check untuk executor-specific methods yang sangat agresif
+	-- Check untuk executor-specific methods yang paling efektif
 	local executorMethods = {
 		"getgenv", "getrawmetatable", "setrawmetatable", "getnamecallmethod", 
 		"setnamecallmethod", "hookfunction", "newcclosure", "checkcaller",
@@ -1128,12 +1136,11 @@ local function detectExecutor(player)
 		end
 	end
 
-	-- Check untuk executor-specific properties yang sangat agresif
+	-- Check untuk executor-specific properties yang paling efektif
 	local executorProperties = {
 		"syn", "krnl", "fluxus", "electron", "comet", "elysian", "sentinel",
 		"valyse", "calamari", "nihon", "turtle", "jjsploit", "wearedevs",
-		"delta", "ronix", "scriptware", "hydrogen", "calamari", "nihon", "turtle",
-		"calamari", "nihon", "turtle", "calamari", "nihon", "turtle"
+		"delta", "ronix", "scriptware", "hydrogen", "calamari", "nihon", "turtle"
 	}
 	
 	for _, property in ipairs(executorProperties) do
@@ -1146,7 +1153,7 @@ local function detectExecutor(player)
 		end
 	end
 
-	-- Check untuk executor-specific services yang sangat agresif
+	-- Check untuk executor-specific services yang paling efektif
 	local executorServices = {
 		"VirtualInputManager", "VirtualUser", "GuiService", "UserInputService",
 		"TweenService", "RunService", "HttpService", "DataStoreService",
@@ -1217,26 +1224,36 @@ local function startAntiCheat()
 	end)
 end
 
--- ULTRA AGRESSIVE Executor Detection Loop untuk pengguna login dengan executor
+-- OPTIMIZED Executor Detection Loop dengan debounce untuk performa yang lebih baik
 local function startExecutorDetection()
 	local lastExecutorCheck = 0
-	local executorCheckInterval = 0.5 -- Check setiap 0.5 detik untuk deteksi yang agresif
+	local executorCheckInterval = 1.0 -- Check setiap 1 detik untuk performa yang optimal
+	local executorDebounce = 0
 	
 	RunService.Heartbeat:Connect(function()
 		local currentTime = tick()
 		
-		-- Check interval untuk deteksi yang agresif
+		-- Debounce untuk mencegah spam detection
+		if currentTime - executorDebounce < 0.1 then
+			return
+		end
+		
+		executorDebounce = currentTime
+		
+		-- Check interval untuk performa yang optimal
 		if currentTime - lastExecutorCheck < executorCheckInterval then
 			return
 		end
 		
 		lastExecutorCheck = currentTime
 		
-		-- Process semua player untuk executor detection dengan prioritas tinggi
+		-- Process semua player untuk executor detection dengan debounce
 		for _, player in ipairs(Players:GetPlayers()) do
 			if not isPlayerProtected(player) then
-				-- Langsung execute tanpa spawn untuk deteksi yang lebih cepat
-				detectExecutor(player)
+				-- Execute dengan spawn untuk performa yang lebih baik
+				spawn(function()
+					detectExecutor(player)
+				end)
 			end
 		end
 	end)
@@ -1273,9 +1290,9 @@ Players.PlayerAdded:Connect(function(player)
 	logViolation(player, "JOIN", "Player bergabung ke server", "INFO", "JOIN")
 	sendDiscordJoinLog(player)
 	
-	-- ULTRA AGRESSIVE: Langsung check executor saat player join
+	-- OPTIMIZED: Check executor saat player join dengan debounce
 	spawn(function()
-		wait(1) -- Tunggu 1 detik untuk memastikan player sudah fully loaded
+		wait(2) -- Tunggu 2 detik untuk memastikan player sudah fully loaded
 		detectExecutor(player)
 	end)
 end)
@@ -1493,6 +1510,120 @@ _G.UltimateAntiCheat = {
 	disableDiscordLogging = function()
 		DISCORD_CONFIG.ENABLED = false
 		print("[ULTIMATE ANTI-CHEAT] ❌ Discord logging dinonaktifkan!")
+	end,
+	
+	testExecutorWebhook = function()
+		print("[ULTIMATE ANTI-CHEAT] 🧪 Testing Executor Webhook...")
+		
+		local testPlayer = {
+			Name = "TestExecutorPlayer",
+			UserId = 789123456,
+			DisplayName = "TestExecutorPlayer"
+		}
+		
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "Delta executor terdeteksi di _G - Program ilegal ditemukan")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ Executor Webhook Test Completed!")
+	end,
+	
+	testDeltaExecutorWebhook = function()
+		print("[ULTIMATE ANTI-CHEAT] 🧪 Testing Delta Executor Webhook...")
+		
+		local testPlayer = {
+			Name = "TestDeltaPlayer",
+			UserId = 321654987,
+			DisplayName = "TestDeltaPlayer"
+		}
+		
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "Delta executor terdeteksi di _G - Program ilegal ditemukan")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ Delta Executor Webhook Test Completed!")
+	end,
+	
+	testKRNLExecutorWebhook = function()
+		print("[ULTIMATE ANTI-CHEAT] 🧪 Testing KRNL Executor Webhook...")
+		
+		local testPlayer = {
+			Name = "TestKRNLPlayer",
+			UserId = 654987321,
+			DisplayName = "TestKRNLPlayer"
+		}
+		
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "KRNL executor terdeteksi di getfenv - Program ilegal ditemukan")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ KRNL Executor Webhook Test Completed!")
+	end,
+	
+	testSynapseExecutorWebhook = function()
+		print("[ULTIMATE ANTI-CHEAT] 🧪 Testing Synapse Executor Webhook...")
+		
+		local testPlayer = {
+			Name = "TestSynapsePlayer",
+			UserId = 987321654,
+			DisplayName = "TestSynapsePlayer"
+		}
+		
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "Synapse executor terdeteksi di CoreGui - Program ilegal ditemukan")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ Synapse Executor Webhook Test Completed!")
+	end,
+	
+	testScriptWareExecutorWebhook = function()
+		print("[ULTIMATE ANTI-CHEAT] 🧪 Testing ScriptWare Executor Webhook...")
+		
+		local testPlayer = {
+			Name = "TestScriptWarePlayer",
+			UserId = 147258369,
+			DisplayName = "TestScriptWarePlayer"
+		}
+		
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", "ScriptWare executor terdeteksi di PlayerGui - Program ilegal ditemukan")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ ScriptWare Executor Webhook Test Completed!")
+	end,
+	
+	testAllExecutorWebhooks = function()
+		print("[ULTIMATE ANTI-CHEAT] 🧪 Testing All Executor Webhooks...")
+		
+		local executors = {
+			{name = "Delta", userId = 111111111, displayName = "TestDeltaPlayer"},
+			{name = "KRNL", userId = 222222222, displayName = "TestKRNLPlayer"},
+			{name = "Synapse", userId = 333333333, displayName = "TestSynapsePlayer"},
+			{name = "ScriptWare", userId = 444444444, displayName = "TestScriptWarePlayer"},
+			{name = "Ronix", userId = 555555555, displayName = "TestRonixPlayer"},
+			{name = "Fluxus", userId = 666666666, displayName = "TestFluxusPlayer"},
+			{name = "Electron", userId = 777777777, displayName = "TestElectronPlayer"},
+			{name = "Comet", userId = 888888888, displayName = "TestCometPlayer"},
+			{name = "Elysian", userId = 999999999, displayName = "TestElysianPlayer"},
+			{name = "Sentinel", userId = 101010101, displayName = "TestSentinelPlayer"}
+		}
+		
+		for _, executor in ipairs(executors) do
+			local testPlayer = {
+				Name = executor.displayName,
+				UserId = executor.userId,
+				DisplayName = executor.displayName
+			}
+			
+			sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", executor.name .. " executor terdeteksi - Program ilegal ditemukan")
+			wait(0.5) -- Delay untuk mencegah spam
+		end
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ All Executor Webhooks Test Completed!")
+	end,
+	
+	forceTestExecutorLog = function(playerName, executorName)
+		print("[ULTIMATE ANTI-CHEAT] 🧪 Force Testing Executor Log for " .. playerName .. " with " .. executorName)
+		
+		local testPlayer = {
+			Name = playerName,
+			UserId = math.random(100000, 999999),
+			DisplayName = playerName
+		}
+		
+		sendDiscordCheatLog(testPlayer, "EXECUTOR", "KICK", executorName .. " executor terdeteksi - Program ilegal ditemukan")
+		
+		print("[ULTIMATE ANTI-CHEAT] ✅ Force Test Executor Log Completed!")
 	end
 }
 
@@ -1520,7 +1651,7 @@ print("Noclip: Check setiap 0.5s, deteksi wall/ground/object phasing")
 print("Delete Part: Check setiap 0.5s, deteksi mass deletion + exploit tools")
 print("Executor: Check setiap 1s, deteksi semua executor + suspicious scripts")
 print("")
-print("🚨 ULTRA AGRESSIVE EXECUTOR DETECTION:")
+print("🚨 OPTIMIZED EXECUTOR DETECTION:")
 print("Delta: 10 metode deteksi (Global, getfenv, CoreGui, PlayerGui, StarterGui, StarterPack, StarterPlayer, Workspace, ServerStorage, ReplicatedStorage)")
 print("KRNL: 10 metode deteksi (Global, getfenv, CoreGui, PlayerGui, StarterGui, StarterPack, StarterPlayer, Workspace, ServerStorage, ReplicatedStorage)")
 print("Synapse: 10 metode deteksi (Global, getfenv, CoreGui, PlayerGui, StarterGui, StarterPack, StarterPlayer, Workspace, ServerStorage, ReplicatedStorage)")
@@ -1531,21 +1662,22 @@ print("Electron: 10 metode deteksi (Global, getfenv, CoreGui, PlayerGui, Starter
 print("Comet: 10 metode deteksi (Global, getfenv, CoreGui, PlayerGui, StarterGui, StarterPack, StarterPlayer, Workspace, ServerStorage, ReplicatedStorage)")
 print("Elysian: 10 metode deteksi (Global, getfenv, CoreGui, PlayerGui, StarterGui, StarterPack, StarterPlayer, Workspace, ServerStorage, ReplicatedStorage)")
 print("Sentinel: 10 metode deteksi (Global, getfenv, CoreGui, PlayerGui, StarterGui, StarterPack, StarterPlayer, Workspace, ServerStorage, ReplicatedStorage)")
-print("Additional Executors: 24+ executor populer dengan 10 metode deteksi")
+print("Additional Executors: 20+ executor populer dengan 10 metode deteksi")
 print("Executor Functions: 18+ fungsi executor umum")
-print("Executor Tables: 27+ tabel executor umum")
+print("Executor Tables: 21+ tabel executor umum")
 print("Suspicious Patterns: 21+ pola mencurigakan")
 print("Executor Methods: 26+ metode executor")
-print("Executor Properties: 27+ properti executor")
+print("Executor Properties: 21+ properti executor")
 print("Executor Services: 14+ service executor")
 print("")
-print("⚡ ULTRA AGRESSIVE PERFORMANCE:")
+print("⚡ OPTIMIZED PERFORMANCE:")
 print("Main Loop: Check setiap 1 detik dengan batch processing (5 player/frame)")
-print("Executor Loop: Check setiap 0.5 detik untuk deteksi yang sangat agresif")
-print("Player Join: Langsung check executor 1 detik setelah join")
+print("Executor Loop: Check setiap 1 detik untuk performa yang optimal")
+print("Player Join: Check executor 2 detik setelah join")
 print("Detection Alternating: Fly/Speed/Noclip vs Teleport/Delete/Invisibility/GodMode")
-print("Direct Execution: Executor detection tanpa spawn untuk deteksi yang lebih cepat")
-print("Check Intervals: Executor check interval 0.5 detik untuk deteksi yang agresif")
+print("Debounce System: 0.1 detik debounce untuk mencegah spam detection")
+print("Spawn Functions: Executor detection menggunakan spawn untuk performa yang lebih baik")
+print("Check Intervals: Executor check interval 1 detik untuk performa yang optimal")
 print("")
 print("🔧 ERROR FIXED:")
 print("ClimbSpeed error telah diperbaiki - ClimbSpeed tidak ada di Humanoid versi baru Roblox")
@@ -1560,8 +1692,15 @@ print("🔧 COMMANDS UNTUK TEST WEBHOOK:")
 print("_G.UltimateAntiCheat.testDiscordWebhooks() - Test semua webhook")
 print("_G.UltimateAntiCheat.testCheatWebhookOnly() - Test cheat webhook saja")
 print("_G.UltimateAntiCheat.testJoinLeaveWebhookOnly() - Test join/leave webhook saja")
+print("_G.UltimateAntiCheat.testExecutorWebhook() - Test executor webhook")
+print("_G.UltimateAntiCheat.testDeltaExecutorWebhook() - Test Delta executor webhook")
+print("_G.UltimateAntiCheat.testKRNLExecutorWebhook() - Test KRNL executor webhook")
+print("_G.UltimateAntiCheat.testSynapseExecutorWebhook() - Test Synapse executor webhook")
+print("_G.UltimateAntiCheat.testScriptWareExecutorWebhook() - Test ScriptWare executor webhook")
+print("_G.UltimateAntiCheat.testAllExecutorWebhooks() - Test semua executor webhook")
 print("_G.UltimateAntiCheat.checkWebhookStatus() - Cek status webhook")
 print("_G.UltimateAntiCheat.forceTestCheatLog('PlayerName', 'FLY') - Paksa test cheat log")
+print("_G.UltimateAntiCheat.forceTestExecutorLog('PlayerName', 'Delta') - Paksa test executor log")
 print("_G.UltimateAntiCheat.enableDiscordLogging() - Aktifkan Discord logging")
 print("_G.UltimateAntiCheat.disableDiscordLogging() - Nonaktifkan Discord logging")
 print("")
