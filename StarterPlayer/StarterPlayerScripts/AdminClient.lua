@@ -1,5 +1,8 @@
--- AdminClientMobile.lua (Mobile only)
--- Mobile: ikon ⚙️ kanan-tengah, panel kecil di tengah. Teleport/Bring/Freeze/Kick/Chat, Spectate (kamera), Invis, Fly smooth.
+-- AdminClient.lua (Unified PC + Mobile, 3-column layout)
+-- Kiri: Player List | Tengah: Fitur Admin | Kanan: Admin Chat
+-- Mobile & PC tampilan sama, ukuran disesuaikan (mobile lebih kecil, center). Ikon buka hanya di mobile; PC pakai F5.
+-- Fitur: Spectate (kamera), Fly smooth (bersih saat OFF), Invis (server-side + hint lokal), Teleport (goto), Bring, Freeze/Unfreeze, Kick (reason), Give/Revoke (hanya owner), Admin Chat.
+-- Optimasi: debounce UI, remote fetch aman, tidak memindah parent layout saat refresh list.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -7,19 +10,24 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 
--- Hanya jalan di mobile
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-if not isMobile then return end
-
 local LOCAL_PLAYER = Players.LocalPlayer
 
-local function getRemote(name, timeout)
+-- Device
+local function isMobileDevice(): boolean
+    local isConsole = UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
+    if isConsole then return false end
+    return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+end
+local IS_MOBILE = isMobileDevice()
+
+-- Remote aman
+local function getRemote(name: string, timeout: number?)
     timeout = timeout or 10
     local r = ReplicatedStorage:FindFirstChild(name)
     if r then return r end
     r = ReplicatedStorage:WaitForChild(name, timeout)
     if r then return r end
-    local got
+    local got: Instance? = nil
     local conn; conn = ReplicatedStorage.ChildAdded:Connect(function(ch)
         if ch.Name == name then got = ch end
     end)
@@ -28,17 +36,18 @@ local function getRemote(name, timeout)
     return got
 end
 
-local REMOTE = getRemote("AdminEvent", 10)
+local REMOTE: RemoteEvent = getRemote("AdminEvent", 10) :: any
 if not REMOTE then
-    warn("[AdminClientMobile] AdminEvent not found; retrying later")
+    warn("[AdminClient] AdminEvent not found; retrying later")
     task.defer(function()
-        REMOTE = getRemote("AdminEvent", 20)
-        if REMOTE then print("[AdminClientMobile] AdminEvent connected (late)") end
+        REMOTE = getRemote("AdminEvent", 20) :: any
+        if REMOTE then print("[AdminClient] AdminEvent connected (late)") end
     end)
 end
 
-local last = {}
-local function debounce(key, gap)
+-- Debounce
+local last: {[string]: number} = {}
+local function debounce(key: string, gap: number?): boolean
     gap = gap or 0.25
     local now = os.clock()
     local prev = last[key] or 0
@@ -47,24 +56,28 @@ local function debounce(key, gap)
     return true
 end
 
-local function notify(msg)
+-- Notifikasi
+local function notify(msg: string)
     if not msg or msg == "" then return end
-    pcall(function()
+    local ok = pcall(function()
         StarterGui:SetCore("SendNotification", { Title = "Admin", Text = msg, Duration = 2 })
     end)
+    if not ok then print("[AdminNotify] ", msg) end
 end
 
+-- State
 local hasAdmin = false
 local isOwner = false
-local selectedName = nil
+local selectedName: string? = nil
 
--- GUI
+-- Root GUI
 local gui = Instance.new("ScreenGui")
-gui.Name = "AdminUIMobile"
+gui.Name = "AdminUI"
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = LOCAL_PLAYER:WaitForChild("PlayerGui")
 
+-- Mobile open icon
 local openBtn = Instance.new("TextButton")
 openBtn.Name = "OpenAdmin"
 openBtn.Visible = false
@@ -80,11 +93,11 @@ local openCorner = Instance.new("UICorner")
 openCorner.CornerRadius = UDim.new(0, 6)
 openCorner.Parent = openBtn
 
+-- Panel utama
 local panel = Instance.new("Frame")
 panel.Name = "AdminPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = UDim2.new(0.5, 0, 0.5, 0)
-panel.Size = UDim2.new(0, 320, 0, 360)
 panel.BackgroundColor3 = Color3.fromRGB(245, 248, 255)
 panel.BorderSizePixel = 0
 panel.Visible = false
@@ -97,75 +110,85 @@ stroke.Thickness = 1
 stroke.Color = Color3.fromRGB(200, 210, 230)
 stroke.Parent = panel
 
-local layoutRoot = Instance.new("UIListLayout")
-layoutRoot.FillDirection = Enum.FillDirection.Vertical
-layoutRoot.Padding = UDim.new(0, 6)
-layoutRoot.Parent = panel
+-- Columns container
+local columns = Instance.new("Frame")
+columns.BackgroundTransparency = 1
+columns.Parent = panel
+local colLayout = Instance.new("UIListLayout")
+colLayout.FillDirection = Enum.FillDirection.Horizontal
+colLayout.Padding = UDim.new(0, 8)
+colLayout.Parent = columns
+local colPad = Instance.new("UIPadding")
+colPad.PaddingLeft = UDim.new(0, 8)
+colPad.PaddingRight = UDim.new(0, 8)
+colPad.PaddingTop = UDim.new(0, 8)
+colPad.PaddingBottom = UDim.new(0, 8)
+colPad.Parent = columns
 
--- Top
-local top = Instance.new("Frame")
-top.BackgroundTransparency = 1
-top.Size = UDim2.new(1, -12, 0, 68)
-top.Parent = panel
-local topPad = Instance.new("UIPadding")
-topPad.PaddingLeft = UDim.new(0, 6)
-topPad.PaddingRight = UDim.new(0, 6)
-topPad.Parent = top
+-- Left: Player List
+local leftCol = Instance.new("Frame")
+leftCol.BackgroundTransparency = 1
+leftCol.Parent = columns
+local leftTitle = Instance.new("TextLabel")
+leftTitle.BackgroundTransparency = 1
+leftTitle.Size = UDim2.new(1, 0, 0, 22)
+leftTitle.Text = "👥 Players"
+leftTitle.TextXAlignment = Enum.TextXAlignment.Left
+leftTitle.TextColor3 = Color3.fromRGB(40, 50, 70)
+leftTitle.TextSize = 14
+leftTitle.Font = Enum.Font.GothamMedium
+leftTitle.Parent = leftCol
+local playerList = Instance.new("ScrollingFrame")
+playerList.Name = "PlayerList"
+playerList.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+playerList.BorderSizePixel = 0
+playerList.ScrollBarThickness = 4
+playerList.Parent = leftCol
+local plCorner = Instance.new("UICorner")
+plCorner.CornerRadius = UDim.new(0, 8)
+plCorner.Parent = playerList
+local plLayout = Instance.new("UIListLayout")
+plLayout.Padding = UDim.new(0, 4)
+plLayout.Parent = playerList
+local function refreshPLCanvas()
+    playerList.CanvasSize = UDim2.new(0, 0, 0, plLayout.AbsoluteContentSize.Y + 8)
+end
+plLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshPLCanvas)
 
+-- Center: Features + Reason
+local centerCol = Instance.new("Frame")
+centerCol.BackgroundTransparency = 1
+centerCol.Parent = columns
+local centerTop = Instance.new("Frame")
+centerTop.BackgroundTransparency = 1
+centerTop.Parent = centerCol
 local targetLabel = Instance.new("TextLabel")
 targetLabel.BackgroundTransparency = 1
-targetLabel.Size = UDim2.new(1, 0, 0, 24)
+targetLabel.Size = UDim2.new(1, 0, 0, 22)
 targetLabel.TextXAlignment = Enum.TextXAlignment.Left
 targetLabel.Text = "🎯 Target: -"
-targetLabel.TextColor3 = Color3.fromRGB(20, 28, 45)
-targetLabel.TextSize = 16
+targetLabel.TextColor3 = Color3.fromRGB(40, 50, 70)
+targetLabel.TextSize = 14
 targetLabel.Font = Enum.Font.GothamMedium
-targetLabel.Parent = top
-
+targetLabel.Parent = centerTop
 local reasonBox = Instance.new("TextBox")
-reasonBox.Size = UDim2.new(1, 0, 0, 34)
+reasonBox.Size = UDim2.new(1, 0, 0, 30)
 reasonBox.PlaceholderText = "Reason (untuk Kick)"
 reasonBox.Text = ""
 reasonBox.ClearTextOnFocus = false
 reasonBox.TextSize = 14
 reasonBox.Font = Enum.Font.Gotham
-reasonBox.TextColor3 = Color3.fromRGB(20, 28, 45)
+reasonBox.TextColor3 = Color3.fromRGB(40, 50, 70)
 reasonBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 reasonBox.BorderSizePixel = 0
-reasonBox.Parent = top
-local reasonCorner = Instance.new("UICorner")
-reasonCorner.CornerRadius = UDim.new(0, 8)
-reasonCorner.Parent = reasonBox
-
--- Middle
-local mid = Instance.new("Frame")
-mid.BackgroundTransparency = 1
-mid.Size = UDim2.new(1, -12, 0, 200)
-mid.Parent = panel
-local midPad = Instance.new("UIPadding")
-midPad.PaddingLeft = UDim.new(0, 6)
-midPad.PaddingRight = UDim.new(0, 6)
-midPad.Parent = mid
-
-local midLayout = Instance.new("UIListLayout")
-midLayout.FillDirection = Enum.FillDirection.Horizontal
-midLayout.Padding = UDim.new(0, 6)
-midLayout.Parent = mid
-
-local left = Instance.new("Frame")
-left.BackgroundTransparency = 1
-left.Size = UDim2.new(0.6, 0, 1, 0)
-left.Parent = mid
-
-local right = Instance.new("Frame")
-right.BackgroundTransparency = 1
-right.Size = UDim2.new(0.4, 0, 1, 0)
-right.Parent = mid
+reasonBox.Parent = centerTop
+local rbCorner = Instance.new("UICorner")
+rbCorner.CornerRadius = UDim.new(0, 8)
+rbCorner.Parent = reasonBox
 
 local features = Instance.new("Frame")
 features.BackgroundTransparency = 1
-features.Size = UDim2.new(1, 0, 1, 0)
-features.Parent = left
+features.Parent = centerCol
 local grid = Instance.new("UIGridLayout")
 grid.CellSize = UDim2.new(0.5, -6, 0, 34)
 grid.CellPadding = UDim2.new(0, 6, 0, 6)
@@ -173,7 +196,7 @@ grid.FillDirectionMaxCells = 2
 grid.SortOrder = Enum.SortOrder.LayoutOrder
 grid.Parent = features
 
-local function makeBtn(txt, color)
+local function makeBtn(txt: string, color: Color3): TextButton
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, 0, 0, 34)
     b.BackgroundColor3 = color
@@ -192,51 +215,111 @@ local function makeBtn(txt, color)
     return b
 end
 
--- Player list
-local plist = Instance.new("ScrollingFrame")
-plist.Size = UDim2.new(1, 0, 1, 0)
-plist.CanvasSize = UDim2.new(0, 0, 0, 0)
-plist.ScrollBarThickness = 4
-plist.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-plist.BorderSizePixel = 0
-plist.Parent = right
-local plistCorner = Instance.new("UICorner")
-plistCorner.CornerRadius = UDim.new(0, 8)
-plistCorner.Parent = plist
-local plistLayout = Instance.new("UIListLayout")
-plistLayout.Padding = UDim.new(0, 4)
-plistLayout.Parent = plist
-local function refreshCanvas()
-    plist.CanvasSize = UDim2.new(0, 0, 0, plistLayout.AbsoluteContentSize.Y + 8)
+-- Right: Chat
+local rightCol = Instance.new("Frame")
+rightCol.BackgroundTransparency = 1
+rightCol.Parent = columns
+local rightTitle = Instance.new("TextLabel")
+rightTitle.BackgroundTransparency = 1
+rightTitle.Size = UDim2.new(1, 0, 0, 22)
+rightTitle.Text = "💬 Admin Chat"
+rightTitle.TextXAlignment = Enum.TextXAlignment.Left
+rightTitle.TextColor3 = Color3.fromRGB(40, 50, 70)
+rightTitle.TextSize = 14
+rightTitle.Font = Enum.Font.GothamMedium
+rightTitle.Parent = rightCol
+local chatList = Instance.new("ScrollingFrame")
+chatList.Name = "ChatList"
+chatList.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+chatList.BorderSizePixel = 0
+chatList.ScrollBarThickness = 4
+chatList.Parent = rightCol
+local clCorner = Instance.new("UICorner")
+clCorner.CornerRadius = UDim.new(0, 8)
+clCorner.Parent = chatList
+local clLayout = Instance.new("UIListLayout")
+clLayout.Padding = UDim.new(0, 4)
+clLayout.Parent = chatList
+local function refreshChatCanvas()
+    chatList.CanvasSize = UDim2.new(0, 0, 0, clLayout.AbsoluteContentSize.Y + 8)
 end
-plistLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshCanvas)
+clLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshChatCanvas)
+local chatInput = Instance.new("TextBox")
+chatInput.Size = UDim2.new(1, 0, 0, 30)
+chatInput.Text = ""
+chatInput.PlaceholderText = "Ketik dan Enter untuk kirim"
+chatInput.TextSize = 14
+chatInput.Font = Enum.Font.Gotham
+chatInput.TextColor3 = Color3.fromRGB(40, 50, 70)
+chatInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+chatInput.BorderSizePixel = 0
+chatInput.Parent = rightCol
+local ciCorner = Instance.new("UICorner")
+ciCorner.CornerRadius = UDim.new(0, 8)
+ciCorner.Parent = chatInput
 
--- Bottom chat
-local chatBox = Instance.new("TextBox")
-chatBox.Size = UDim2.new(1, -12, 0, 34)
-chatBox.Text = ""
-chatBox.PlaceholderText = "Admin Chat (Enter untuk kirim)"
-chatBox.TextSize = 14
-chatBox.Font = Enum.Font.Gotham
-chatBox.TextColor3 = Color3.fromRGB(20, 28, 45)
-chatBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-chatBox.BorderSizePixel = 0
-chatBox.Parent = panel
-local chatCorner = Instance.new("UICorner")
-chatCorner.CornerRadius = UDim.new(0, 8)
-chatCorner.Parent = chatBox
-local chatPad = Instance.new("UIPadding")
-chatPad.PaddingLeft = UDim.new(0, 6)
-chatPad.PaddingRight = UDim.new(0, 6)
-chatPad.Parent = chatBox
+-- Column sizing + responsive panel
+local function applyResponsive()
+    local vw = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.X or 1280
+    local vh = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize.Y or 720
+    if IS_MOBILE then
+        local width = math.clamp(vw * 0.9, 300, 420)
+        local height = math.clamp(vh * 0.8, 280, 460)
+        panel.Size = UDim2.new(0, width, 0, height)
+    else
+        local width = math.clamp(vw * 0.6, 640, 860)
+        local height = math.clamp(vh * 0.6, 420, 520)
+        panel.Size = UDim2.new(0, width, 0, height)
+    end
 
--- Toggle panel via icon
-openBtn.MouseButton1Click:Connect(function()
-    if not debounce("toggle", 0.25) then return end
-    panel.Visible = not panel.Visible
+    columns.Size = UDim2.new(1, 0, 1, 0)
+
+    -- Column widths: 28% | 44% | 28%
+    leftCol.Size = UDim2.new(0.28, 0, 1, 0)
+    centerCol.Size = UDim2.new(0.44, 0, 1, 0)
+    rightCol.Size = UDim2.new(0.28, 0, 1, 0)
+
+    -- Layout internals
+    leftTitle.Position = UDim2.new(0, 0, 0, 0)
+    playerList.Position = UDim2.new(0, 0, 0, 26)
+    playerList.Size = UDim2.new(1, 0, 1, -26)
+
+    centerTop.Size = UDim2.new(1, 0, 0, 60)
+    targetLabel.Position = UDim2.new(0, 0, 0, 0)
+    reasonBox.Position = UDim2.new(0, 0, 0, 26)
+    features.Position = UDim2.new(0, 0, 0, 60)
+    features.Size = UDim2.new(1, 0, 1, -60)
+
+    rightTitle.Position = UDim2.new(0, 0, 0, 0)
+    chatList.Position = UDim2.new(0, 0, 0, 26)
+    chatInput.Position = UDim2.new(0, 0, 1, -32)
+    chatInput.Size = UDim2.new(1, 0, 0, 30)
+    chatList.Size = UDim2.new(1, 0, 1, -26 - 34)
+end
+
+-- Toggle panel
+local panelOpen = false
+local function setPanel(open: boolean)
+    panel.Visible = open
+    panelOpen = open
+end
+
+-- PC: F5
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == Enum.KeyCode.F5 and not IS_MOBILE and hasAdmin then
+        if not debounce("toggle", 0.25) then return end
+        setPanel(not panelOpen)
+    end
 end)
 
--- Buttons
+-- Mobile: icon
+openBtn.MouseButton1Click:Connect(function()
+    if not debounce("toggle", 0.25) then return end
+    setPanel(not panelOpen)
+end)
+
+-- Buttons (center)
 local btnSpectate = makeBtn("👁️ Spectate", Color3.fromRGB(255, 230, 120))
 btnSpectate.Parent = features
 local btnFly = makeBtn("🪽 Fly", Color3.fromRGB(170, 235, 255))
@@ -260,19 +343,16 @@ btnRevoke.Parent = features
 btnGive.Visible = false
 btnRevoke.Visible = false
 
--- Player list helpers
+-- Player list row
 local function buildPlayerRow(item)
     local row = Instance.new("TextButton")
-    row.Size = UDim2.new(1, -8, 0, 28)
+    row.Size = UDim2.new(1, -6, 0, 26)
     row.BackgroundColor3 = Color3.fromRGB(245, 248, 255)
     row.BorderSizePixel = 0
     row.TextXAlignment = Enum.TextXAlignment.Left
     local label = item.display
-    if item.label == "ADMIN" then
-        label = label .. "  (ADMIN)"
-    elseif item.label == "HELPER" then
-        label = label .. "  (HELPER)"
-    end
+    if item.label == "ADMIN" then label = label .. "  (ADMIN)" end
+    if item.label == "HELPER" then label = label .. "  (HELPER)" end
     row.Text = "  " .. label
     row.TextColor3 = Color3.fromRGB(20, 28, 45)
     row.TextSize = 14
@@ -293,33 +373,45 @@ local function buildPlayerRow(item)
 end
 
 local function refreshPlayerList(list)
-    for _, child in ipairs(plist:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
-        end
+    for _, child in ipairs(playerList:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
     end
     for _, item in ipairs(list or {}) do
         local row = buildPlayerRow(item)
-        row.Parent = plist
+        row.Parent = playerList
     end
-    refreshCanvas()
+    refreshPLCanvas()
 end
 
 -- Chat
-chatBox.FocusLost:Connect(function(enter)
+local function addChatLine(from: string, msg: string)
+    local line = Instance.new("TextLabel")
+    line.BackgroundTransparency = 1
+    line.TextXAlignment = Enum.TextXAlignment.Left
+    line.Size = UDim2.new(1, -6, 0, 18)
+    line.Text = string.format("%s: %s", from, msg)
+    line.TextColor3 = Color3.fromRGB(40, 50, 70)
+    line.TextSize = 13
+    line.Font = Enum.Font.Gotham
+    line.Parent = chatList
+    refreshChatCanvas()
+end
+
+chatInput.FocusLost:Connect(function(enter)
     if not enter then return end
     if not debounce("chat", 0.25) then return end
-    local txt = chatBox.Text
+    local txt = chatInput.Text
     if txt ~= "" and hasAdmin and REMOTE then
         REMOTE:FireServer({ t = "chat", msg = txt })
-        chatBox.Text = ""
+        chatInput.Text = ""
     end
 end)
 
--- Fly (Mobile)
+-- Fly (smooth, cleanup)
 local isFlying = false
-local bv, bg = nil, nil
-local saved = { ws = nil, jp = nil, autoRotate = true }
+local bv: BodyVelocity? = nil
+local bg: BodyGyro? = nil
+local saved = { ws = nil :: number?, jp = nil :: number?, autoRotate = true }
 
 local function cleanupFly()
     local char = LOCAL_PLAYER.Character
@@ -344,7 +436,7 @@ local function cleanupFly()
     bv = nil; bg = nil
 end
 
-local function setFly(on)
+local function setFly(on: boolean)
     if on == isFlying then return end
     local char = LOCAL_PLAYER.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -381,7 +473,7 @@ local function setFly(on)
     end
 end
 
-local flySpeed = 48
+local flySpeed = 56
 RunService.RenderStepped:Connect(function(dt)
     if not isFlying then return end
     local char = LOCAL_PLAYER.Character
@@ -390,13 +482,18 @@ RunService.RenderStepped:Connect(function(dt)
     local cam = workspace.CurrentCamera
     local cf = cam.CFrame
     local dir = Vector3.zero
-    -- Mobile tidak punya WASD, tapi kita masih cek Space/Shift jika ada
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += Vector3.new(0, 0, -1) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir += Vector3.new(0, 0, 1) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir += Vector3.new(-1, 0, 0) end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += Vector3.new(1, 0, 0) end
     if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0, 1, 0) end
     if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir += Vector3.new(0, -1, 0) end
-    -- Gunakan moveDirection dari Humanoid untuk input virtual stick
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local moveDir = hum and hum.MoveDirection or Vector3.zero
-    dir += Vector3.new(moveDir.X, 0, moveDir.Z)
+    -- Mobile moveDirection support
+    if IS_MOBILE then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local md = hum and hum.MoveDirection or Vector3.zero
+        dir += Vector3.new(md.X, 0, md.Z)
+    end
     local look = cf.LookVector
     local right = cf.RightVector
     local up = Vector3.new(0, 1, 0)
@@ -415,8 +512,8 @@ end)
 
 -- Spectate (kamera)
 local isSpectating = false
-local originalSubject = nil
-local function setSpectate(targetName)
+local originalSubject: Instance? = nil
+local function setSpectate(targetName: string?)
     local camera = workspace.CurrentCamera
     if not targetName or targetName == "" then
         if isSpectating and originalSubject then
@@ -438,7 +535,8 @@ local function setSpectate(targetName)
     camera.CameraSubject = hum
 end
 
-local function quickLocalInvis(on)
+-- Quick local invis (server tetap atur global)
+local function quickLocalInvis(on: boolean)
     local char = LOCAL_PLAYER.Character
     if not char then return end
     for _, inst in ipairs(char:GetDescendants()) do
@@ -448,7 +546,7 @@ local function quickLocalInvis(on)
     end
 end
 
--- Wire buttons
+-- Buttons wiring
 btnSpectate.MouseButton1Click:Connect(function()
     if not debounce("spectate", 0.3) then return end
     if not selectedName then notify("Pilih target dulu"); return end
@@ -458,11 +556,7 @@ end)
 btnFly.MouseButton1Click:Connect(function()
     if not debounce("fly", 0.2) then return end
     if REMOTE then
-        if not isFlying then
-            REMOTE:FireServer({ t = "cmd", cmd = "fly" })
-        else
-            REMOTE:FireServer({ t = "cmd", cmd = "unfly" })
-        end
+        if not isFlying then REMOTE:FireServer({ t = "cmd", cmd = "fly" }) else REMOTE:FireServer({ t = "cmd", cmd = "unfly" }) end
     end
 end)
 
@@ -470,14 +564,10 @@ btnInvis.MouseButton1Click:Connect(function()
     if not debounce("invis", 0.3) then return end
     local char = LOCAL_PLAYER.Character
     local head = char and char:FindFirstChild("Head")
-    local hintInvisible = head and head.LocalTransparencyModifier == 1
+    local hintInvisible = head and (head :: any).LocalTransparencyModifier == 1
     quickLocalInvis(not hintInvisible)
     if REMOTE then
-        if hintInvisible then
-            REMOTE:FireServer({ t = "cmd", cmd = "vis" })
-        else
-            REMOTE:FireServer({ t = "cmd", cmd = "invis" })
-        end
+        if hintInvisible then REMOTE:FireServer({ t = "cmd", cmd = "vis" }) else REMOTE:FireServer({ t = "cmd", cmd = "invis" }) end
     end
 end)
 
@@ -530,15 +620,16 @@ if REMOTE then
         if payload.t == "admin" then
             hasAdmin = payload.on == true
             isOwner = payload.owner == true
-            openBtn.Visible = isMobile and hasAdmin
+            openBtn.Visible = IS_MOBILE and hasAdmin
             btnGive.Visible = isOwner
             btnRevoke.Visible = isOwner
-            if not hasAdmin then panel.Visible = false end
+            if not hasAdmin then setPanel(false) end
             notify(hasAdmin and "Admin enabled" or "Admin disabled")
+            applyResponsive()
         elseif payload.t == "plist" then
             refreshPlayerList(payload.list or {})
         elseif payload.t == "chat" then
-            notify(((payload.from or "?") .. ": " .. (payload.msg or "")))
+            addChatLine(payload.from or "?", payload.msg or "")
         elseif payload.t == "notify" then
             notify(payload.msg or "")
         elseif payload.t == "spectate" then
@@ -553,5 +644,6 @@ if REMOTE then
     end)
 end
 
-print("[AdminClientMobile] Ready")
+applyResponsive()
+print("[AdminClient] Ready")
 
