@@ -314,10 +314,7 @@ remote.OnServerEvent:Connect(function(sender: Player, payload)
         elseif cmd == "vis" then
             setInvisible(sender, false)
             remote:FireClient(sender, { t = "notify", msg = "Invisible OFF" })
-        elseif cmd == "fly" then
-            remote:FireClient(sender, { t = "fly", on = true })
-        elseif cmd == "unfly" then
-            remote:FireClient(sender, { t = "fly", on = false })
+        -- fly removed
         elseif cmd == "heal" then
             local target = findPlayerByName(payload.target) or sender
             local char = target.Character

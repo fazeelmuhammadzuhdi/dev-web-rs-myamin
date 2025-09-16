@@ -6,7 +6,7 @@
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+-- RunService no longer needed (fly removed)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 
@@ -322,8 +322,7 @@ end)
 -- Buttons (center)
 local btnSpectate = makeBtn("👁️ Spectate", Color3.fromRGB(255, 230, 120))
 btnSpectate.Parent = features
-local btnFly = makeBtn("🪽 Fly", Color3.fromRGB(170, 235, 255))
-btnFly.Parent = features
+-- Fly removed
 local btnInvis = makeBtn("🫥 Invis", Color3.fromRGB(255, 205, 230))
 btnInvis.Parent = features
 local btnGoto = makeBtn("🛰️ Teleport", Color3.fromRGB(200, 240, 200))
@@ -413,119 +412,7 @@ chatInput.FocusLost:Connect(function(enter)
     end
 end)
 
--- Fly (smooth, cleanup)
-local isFlying = false
-local bv: BodyVelocity? = nil
-local bg: BodyGyro? = nil
-local saved = { ws = nil :: number?, jp = nil :: number?, autoRotate = true }
-
-local function cleanupFly()
-    local char = LOCAL_PLAYER.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if hrp then
-        for _, child in ipairs(hrp:GetChildren()) do
-            if child:IsA("BodyMover") or child:IsA("BodyGyro") or child:IsA("BodyVelocity") then
-                child:Destroy()
-            end
-        end
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
-        -- Angkat sedikit untuk menghindari stuck gesek lantai
-        hrp.CFrame = hrp.CFrame + Vector3.new(0, 0.2, 0)
-    end
-    if hum then
-        hum.AutoRotate = saved.autoRotate ~= false
-        if saved.ws then hum.WalkSpeed = saved.ws end
-        if saved.jp then hum.JumpPower = saved.jp end
-        hum.Sit = false
-        hum.PlatformStand = false
-        hum:ChangeState(Enum.HumanoidStateType.Running)
-    end
-    bv = nil; bg = nil
-end
-
-local function setFly(on: boolean)
-    if on == isFlying then return end
-    local char = LOCAL_PLAYER.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not (char and hrp and hum) then return end
-    if on then
-        isFlying = true
-        saved.ws = hum.WalkSpeed
-        saved.jp = hum.JumpPower
-        saved.autoRotate = hum.AutoRotate
-        hum.AutoRotate = false
-        hum.WalkSpeed = 0
-        hum.JumpPower = 0
-        hum.PlatformStand = false
-        for _, child in ipairs(hrp:GetChildren()) do
-            if child:IsA("BodyMover") or child:IsA("BodyGyro") or child:IsA("BodyVelocity") then
-                child:Destroy()
-            end
-        end
-        bv = Instance.new("BodyVelocity")
-        bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
-        bv.Velocity = Vector3.zero
-        bv.Parent = hrp
-        bg = Instance.new("BodyGyro")
-        bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-        bg.P = 1e5
-        bg.CFrame = hrp.CFrame
-        bg.Parent = hrp
-        notify("Fly ON")
-    else
-        isFlying = false
-        cleanupFly()
-        notify("Fly OFF")
-    end
-end
-
-local flySpeed = 56
-RunService.RenderStepped:Connect(function(dt)
-    if not isFlying then return end
-    local char = LOCAL_PLAYER.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not (char and hrp and hum and bv and bg) then return end
-    -- Paksa state supaya tidak lari di tempat
-    if hum:GetState() ~= Enum.HumanoidStateType.Freefall then
-        hum:ChangeState(Enum.HumanoidStateType.Freefall)
-    end
-    local cam = workspace.CurrentCamera
-    local cf = cam.CFrame
-    local dir = Vector3.zero
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += Vector3.new(0, 0, -1) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir += Vector3.new(0, 0, 1) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir += Vector3.new(-1, 0, 0) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += Vector3.new(1, 0, 0) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0, 1, 0) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir += Vector3.new(0, -1, 0) end
-    -- Mobile moveDirection support
-    if IS_MOBILE then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        local md = hum and hum.MoveDirection or Vector3.zero
-        dir += Vector3.new(md.X, 0, md.Z)
-    end
-    local look = cf.LookVector
-    local right = cf.RightVector
-    local up = Vector3.new(0, 1, 0)
-    local move = (right * dir.X) + (look * -dir.Z) + (up * dir.Y)
-    if move.Magnitude > 0 then move = move.Unit end
-    local targetVel = move * flySpeed
-    local currVel = hrp.AssemblyLinearVelocity
-    local blend = math.clamp(12 * dt, 0, 1)
-    local newVel = currVel:Lerp(targetVel, blend)
-    if targetVel.Magnitude < 0.1 then newVel = newVel * 0.85 end
-    hrp.AssemblyLinearVelocity = newVel
-    if move.Magnitude > 0.01 then
-        -- Badan menghadap arah gerak (ikut kamera)
-        local faceDir = Vector3.new(look.X, 0, look.Z)
-        if faceDir.Magnitude < 0.001 then faceDir = Vector3.new(0, 0, -1) end
-        bg.CFrame = CFrame.new(hrp.Position, hrp.Position + faceDir)
-    end
-end)
+-- Fly removed
 
 -- Spectate (kamera)
 local isSpectating = false
@@ -570,12 +457,7 @@ btnSpectate.MouseButton1Click:Connect(function()
     if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "spectate", target = selectedName }) end
 end)
 
-btnFly.MouseButton1Click:Connect(function()
-    if not debounce("fly", 0.2) then return end
-    if REMOTE then
-        if not isFlying then REMOTE:FireServer({ t = "cmd", cmd = "fly" }) else REMOTE:FireServer({ t = "cmd", cmd = "unfly" }) end
-    end
-end)
+-- Fly removed
 
 btnInvis.MouseButton1Click:Connect(function()
     if not debounce("invis", 0.3) then return end
@@ -683,8 +565,6 @@ if REMOTE then
             else
                 setSpectate(payload.target)
             end
-        elseif payload.t == "fly" then
-            setFly(payload.on == true)
         end
     end)
 end
