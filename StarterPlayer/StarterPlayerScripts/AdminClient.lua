@@ -502,17 +502,17 @@ end)
 
 btnHeal.MouseButton1Click:Connect(function()
     if not debounce("heal", 0.4) then return end
-    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "heal" }) end
+    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "heal", target = selectedName }) end
 end)
 
 btnGod.MouseButton1Click:Connect(function()
     if not debounce("god", 0.5) then return end
-    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "god" }) end
+    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "god", target = selectedName }) end
 end)
 
 btnUngod.MouseButton1Click:Connect(function()
     if not debounce("ungod", 0.5) then return end
-    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "ungod" }) end
+    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "ungod", target = selectedName }) end
 end)
 
 btnGive.MouseButton1Click:Connect(function()
