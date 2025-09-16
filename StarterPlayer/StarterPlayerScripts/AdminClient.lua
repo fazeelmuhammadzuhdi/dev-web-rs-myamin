@@ -292,7 +292,7 @@ local btnFly = makeBtn("🪽 Fly", Color3.fromRGB(170, 235, 255))
 btnFly.Parent = features
 local btnInvis = makeBtn("🫥 Invis", Color3.fromRGB(255, 205, 230))
 btnInvis.Parent = features
-local btnGoto = makeBtn("🚀 Goto", Color3.fromRGB(200, 240, 200))
+local btnGoto = makeBtn("🛰️ Teleport", Color3.fromRGB(200, 240, 200))
 btnGoto.Parent = features
 local btnBring = makeBtn("📥 Bring", Color3.fromRGB(210, 230, 255))
 btnBring.Parent = features
@@ -342,13 +342,16 @@ local function buildPlayerRow(item)
 end
 
 local function refreshPlayerList(list)
-    plist:ClearAllChildren()
-    plistLayout.Parent = plist
+    -- Hanya hapus baris pemain, pertahankan layout/helper
+    for _, child in ipairs(plist:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
     for _, item in ipairs(list or {}) do
         local row = buildPlayerRow(item)
         row.Parent = plist
     end
-    plistLayout.Parent = plist
     refreshCanvas()
 end
 
