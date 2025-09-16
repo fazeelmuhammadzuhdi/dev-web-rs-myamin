@@ -336,6 +336,12 @@ local btnUnfreeze = makeBtn("🔥 Unfreeze", Color3.fromRGB(255, 220, 200))
 btnUnfreeze.Parent = features
 local btnKick = makeBtn("⛔ Kick", Color3.fromRGB(255, 200, 200))
 btnKick.Parent = features
+local btnHeal = makeBtn("💖 Heal", Color3.fromRGB(210, 255, 225))
+btnHeal.Parent = features
+local btnGod = makeBtn("🛡️ God", Color3.fromRGB(225, 210, 255))
+btnGod.Parent = features
+local btnUngod = makeBtn("🛡️ Off", Color3.fromRGB(230, 230, 240))
+btnUngod.Parent = features
 local btnGive = makeBtn("🎛️ Give Admin", Color3.fromRGB(210, 255, 210))
 btnGive.Parent = features
 local btnRevoke = makeBtn("🗑️ Revoke Admin", Color3.fromRGB(255, 210, 210))
@@ -425,11 +431,14 @@ local function cleanupFly()
         end
         hrp.AssemblyLinearVelocity = Vector3.zero
         hrp.AssemblyAngularVelocity = Vector3.zero
+        -- Angkat sedikit untuk menghindari stuck gesek lantai
+        hrp.CFrame = hrp.CFrame + Vector3.new(0, 0.2, 0)
     end
     if hum then
         hum.AutoRotate = saved.autoRotate ~= false
         if saved.ws then hum.WalkSpeed = saved.ws end
         if saved.jp then hum.JumpPower = saved.jp end
+        hum.Sit = false
         hum.PlatformStand = false
         hum:ChangeState(Enum.HumanoidStateType.Running)
     end
@@ -607,6 +616,21 @@ btnKick.MouseButton1Click:Connect(function()
     if not debounce("kick", 0.5) then return end
     if not selectedName then notify("Pilih target dulu"); return end
     if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "kick", target = selectedName, reason = reasonBox.Text }) end
+end)
+
+btnHeal.MouseButton1Click:Connect(function()
+    if not debounce("heal", 0.4) then return end
+    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "heal" }) end
+end)
+
+btnGod.MouseButton1Click:Connect(function()
+    if not debounce("god", 0.5) then return end
+    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "god" }) end
+end)
+
+btnUngod.MouseButton1Click:Connect(function()
+    if not debounce("ungod", 0.5) then return end
+    if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "ungod" }) end
 end)
 
 btnGive.MouseButton1Click:Connect(function()

@@ -97,7 +97,8 @@ Players.PlayerRemoving:Connect(function(p)
 end)
 
 -- Invis server-side (benar-benar tidak terlihat oleh pemain lain)
-type InvisState = { parts: {[Instance]: any}, humDisplayType: any }
+type InvisPartState = { transparency: number, canCollide: boolean, canQuery: boolean, canTouch: boolean }
+type InvisState = { parts: {[Instance]: InvisPartState | number}, humDisplayType: any }
 local INVIS_STATE: {[number]: InvisState} = {}
 
 local function setInvisible(p: Player, on: boolean)
@@ -113,7 +114,12 @@ local function setInvisible(p: Player, on: boolean)
         hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
         for _, inst in ipairs(character:GetDescendants()) do
             if inst:IsA("BasePart") then
-                state.parts[inst] = inst.Transparency
+                state.parts[inst] = {
+                    transparency = inst.Transparency,
+                    canCollide = inst.CanCollide,
+                    canQuery = inst.CanQuery,
+                    canTouch = inst.CanTouch,
+                }
                 inst.Transparency = 1
                 inst.CanCollide = false
                 inst.CanQuery = false
@@ -121,13 +127,6 @@ local function setInvisible(p: Player, on: boolean)
             elseif inst:IsA("Decal") then
                 state.parts[inst] = inst.Transparency
                 inst.Transparency = 1
-            elseif inst:IsA("Accessory") and inst:FindFirstChild("Handle") then
-                local h = inst.Handle
-                state.parts[h] = h.Transparency
-                h.Transparency = 1
-                h.CanCollide = false
-                h.CanQuery = false
-                h.CanTouch = false
             end
         end
         -- Beri tahu semua klien untuk menyembunyikan overhead/nametag kustom milik pemain ini
@@ -148,18 +147,64 @@ local function setInvisible(p: Player, on: boolean)
         for inst, orig in pairs(state.parts) do
             if inst and inst.Parent then
                 if inst:IsA("BasePart") then
-                    inst.Transparency = orig
-                    inst.CanCollide = true
-                    inst.CanQuery = true
-                    inst.CanTouch = true
+                    local o = orig :: InvisPartState
+                    inst.Transparency = o.transparency
+                    inst.CanCollide = o.canCollide
+                    inst.CanQuery = o.canQuery
+                    inst.CanTouch = o.canTouch
                 elseif inst:IsA("Decal") then
-                    inst.Transparency = orig
+                    local t = orig :: number
+                    inst.Transparency = t
                 end
             end
         end
         -- Tampilkan kembali overhead kustom
         for _, plr in ipairs(Players:GetPlayers()) do
             remote:FireClient(plr, { t = "ovh", userId = p.UserId, hide = false })
+        end
+    end
+end
+
+-- GOD MODE
+local GOD_SET: {[number]: boolean} = {}
+local GOD_ORIG_MAX: {[number]: number} = {}
+local GOD_HEALTH_CONN: {[number]: RBXScriptConnection} = {}
+
+local function applyGodToCharacter(p: Player)
+    if not GOD_SET[p.UserId] then return end
+    local char = p.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    if GOD_HEALTH_CONN[p.UserId] then GOD_HEALTH_CONN[p.UserId]:Disconnect() GOD_HEALTH_CONN[p.UserId] = nil end
+    if GOD_ORIG_MAX[p.UserId] == nil then GOD_ORIG_MAX[p.UserId] = hum.MaxHealth end
+    hum.MaxHealth = math.max(1e6, GOD_ORIG_MAX[p.UserId])
+    hum.Health = hum.MaxHealth
+    GOD_HEALTH_CONN[p.UserId] = hum.HealthChanged:Connect(function()
+        if GOD_SET[p.UserId] then
+            hum.MaxHealth = math.max(1e6, GOD_ORIG_MAX[p.UserId])
+            if hum.Health < hum.MaxHealth then hum.Health = hum.MaxHealth end
+        end
+    end)
+end
+
+local function setGod(p: Player, on: boolean)
+    if on then
+        GOD_SET[p.UserId] = true
+        applyGodToCharacter(p)
+        p.CharacterAdded:Connect(function()
+            task.defer(function()
+                if GOD_SET[p.UserId] then applyGodToCharacter(p) end
+            end)
+        end)
+    else
+        GOD_SET[p.UserId] = nil
+        if GOD_HEALTH_CONN[p.UserId] then GOD_HEALTH_CONN[p.UserId]:Disconnect() GOD_HEALTH_CONN[p.UserId] = nil end
+        local char = p.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hum and GOD_ORIG_MAX[p.UserId] then
+            hum.MaxHealth = GOD_ORIG_MAX[p.UserId]
+            if hum.Health > hum.MaxHealth then hum.Health = hum.MaxHealth end
         end
     end
 end
@@ -273,6 +318,19 @@ remote.OnServerEvent:Connect(function(sender: Player, payload)
             remote:FireClient(sender, { t = "fly", on = true })
         elseif cmd == "unfly" then
             remote:FireClient(sender, { t = "fly", on = false })
+        elseif cmd == "heal" then
+            local char = sender.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.Health = hum.MaxHealth
+                remote:FireClient(sender, { t = "notify", msg = "Healed" })
+            end
+        elseif cmd == "god" then
+            setGod(sender, true)
+            remote:FireClient(sender, { t = "notify", msg = "God Mode ON" })
+        elseif cmd == "ungod" then
+            setGod(sender, false)
+            remote:FireClient(sender, { t = "notify", msg = "God Mode OFF" })
         end
 
     elseif t == "chat" then
