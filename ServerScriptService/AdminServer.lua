@@ -319,18 +319,21 @@ remote.OnServerEvent:Connect(function(sender: Player, payload)
         elseif cmd == "unfly" then
             remote:FireClient(sender, { t = "fly", on = false })
         elseif cmd == "heal" then
-            local char = sender.Character
+            local target = findPlayerByName(payload.target) or sender
+            local char = target.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             if hum then
                 hum.Health = hum.MaxHealth
-                remote:FireClient(sender, { t = "notify", msg = "Healed" })
+                remote:FireClient(sender, { t = "notify", msg = "Healed: " .. target.DisplayName })
             end
         elseif cmd == "god" then
-            setGod(sender, true)
-            remote:FireClient(sender, { t = "notify", msg = "God Mode ON" })
+            local target = findPlayerByName(payload.target) or sender
+            setGod(target, true)
+            remote:FireClient(sender, { t = "notify", msg = "God Mode ON: " .. target.DisplayName })
         elseif cmd == "ungod" then
-            setGod(sender, false)
-            remote:FireClient(sender, { t = "notify", msg = "God Mode OFF" })
+            local target = findPlayerByName(payload.target) or sender
+            setGod(target, false)
+            remote:FireClient(sender, { t = "notify", msg = "God Mode OFF: " .. target.DisplayName })
         end
 
     elseif t == "chat" then
