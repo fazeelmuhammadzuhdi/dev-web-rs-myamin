@@ -1,6 +1,5 @@
--- AdminClient.lua (Unified PC + Mobile)
--- Ringan dan rapi: UI responsif (mobile kecil, center), debounce, fly smooth, spectate kamera saja,
--- invis toggle, goto/bring/freeze/unfreeze/kick(reason), admin chat, give/revoke (owner-only), tanpa noclip.
+-- AdminClientMobile.lua (Mobile only)
+-- Mobile: ikon ⚙️ kanan-tengah, panel kecil di tengah. Teleport/Bring/Freeze/Kick/Chat, Spectate (kamera), Invis, Fly smooth.
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -8,16 +7,19 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 
+-- Hanya jalan di mobile
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+if not isMobile then return end
+
 local LOCAL_PLAYER = Players.LocalPlayer
 
--- Remote fetch aman (anti infinite yield)
-local function getRemote(name: string, timeout: number?)
+local function getRemote(name, timeout)
     timeout = timeout or 10
     local r = ReplicatedStorage:FindFirstChild(name)
     if r then return r end
     r = ReplicatedStorage:WaitForChild(name, timeout)
     if r then return r end
-    local got: Instance? = nil
+    local got
     local conn; conn = ReplicatedStorage.ChildAdded:Connect(function(ch)
         if ch.Name == name then got = ch end
     end)
@@ -26,28 +28,17 @@ local function getRemote(name: string, timeout: number?)
     return got
 end
 
-local REMOTE: RemoteEvent = getRemote("AdminEvent", 10) :: any
+local REMOTE = getRemote("AdminEvent", 10)
 if not REMOTE then
-    warn("[AdminClient] AdminEvent not found, will retry in background")
+    warn("[AdminClientMobile] AdminEvent not found; retrying later")
     task.defer(function()
-        REMOTE = getRemote("AdminEvent", 20) :: any
-        if REMOTE then
-            print("[AdminClient] AdminEvent connected (late)")
-        end
+        REMOTE = getRemote("AdminEvent", 20)
+        if REMOTE then print("[AdminClientMobile] AdminEvent connected (late)") end
     end)
 end
 
-local function isMobileDevice(): boolean
-    local isConsole = UserInputService.GamepadEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
-    if isConsole then return false end -- treat console like PC for UI toggle via F5 if keyboard present
-    return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-end
-
-local IS_MOBILE = isMobileDevice()
-
--- Debounce util
-local last: {[string]: number} = {}
-local function debounce(key: string, gap: number?): boolean
+local last = {}
+local function debounce(key, gap)
     gap = gap or 0.25
     local now = os.clock()
     local prev = last[key] or 0
@@ -56,30 +47,24 @@ local function debounce(key: string, gap: number?): boolean
     return true
 end
 
--- Notif aman (tanpa error jika belum siap)
-local function notify(msg: string)
+local function notify(msg)
     if not msg or msg == "" then return end
-    local ok, err = pcall(function()
+    pcall(function()
         StarterGui:SetCore("SendNotification", { Title = "Admin", Text = msg, Duration = 2 })
     end)
-    if not ok then
-        print("[AdminNotify] ", msg)
-    end
 end
 
--- State
 local hasAdmin = false
 local isOwner = false
-local selectedName: string? = nil
+local selectedName = nil
 
--- GUI Root
+-- GUI
 local gui = Instance.new("ScreenGui")
-gui.Name = "AdminUI"
+gui.Name = "AdminUIMobile"
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
 gui.Parent = LOCAL_PLAYER:WaitForChild("PlayerGui")
 
--- Mobile open button (hanya muncul jika admin & mobile)
 local openBtn = Instance.new("TextButton")
 openBtn.Name = "OpenAdmin"
 openBtn.Visible = false
@@ -95,13 +80,14 @@ local openCorner = Instance.new("UICorner")
 openCorner.CornerRadius = UDim.new(0, 6)
 openCorner.Parent = openBtn
 
--- Panel utama
 local panel = Instance.new("Frame")
 panel.Name = "AdminPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = UDim2.new(0.5, 0, 0.5, 0)
+panel.Size = UDim2.new(0, 320, 0, 360)
 panel.BackgroundColor3 = Color3.fromRGB(245, 248, 255)
 panel.BorderSizePixel = 0
+panel.Visible = false
 panel.Parent = gui
 local panelCorner = Instance.new("UICorner")
 panelCorner.CornerRadius = UDim.new(0, 10)
@@ -116,7 +102,7 @@ layoutRoot.FillDirection = Enum.FillDirection.Vertical
 layoutRoot.Padding = UDim.new(0, 6)
 layoutRoot.Parent = panel
 
--- Top: target + reason
+-- Top
 local top = Instance.new("Frame")
 top.BackgroundTransparency = 1
 top.Size = UDim2.new(1, -12, 0, 68)
@@ -151,7 +137,7 @@ local reasonCorner = Instance.new("UICorner")
 reasonCorner.CornerRadius = UDim.new(0, 8)
 reasonCorner.Parent = reasonBox
 
--- Middle: kiri fitur, kanan player list
+-- Middle
 local mid = Instance.new("Frame")
 mid.BackgroundTransparency = 1
 mid.Size = UDim2.new(1, -12, 0, 200)
@@ -176,7 +162,6 @@ right.BackgroundTransparency = 1
 right.Size = UDim2.new(0.4, 0, 1, 0)
 right.Parent = mid
 
--- Feature grid
 local features = Instance.new("Frame")
 features.BackgroundTransparency = 1
 features.Size = UDim2.new(1, 0, 1, 0)
@@ -188,7 +173,7 @@ grid.FillDirectionMaxCells = 2
 grid.SortOrder = Enum.SortOrder.LayoutOrder
 grid.Parent = features
 
-local function makeBtn(txt: string, color: Color3): TextButton
+local function makeBtn(txt, color)
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(1, 0, 0, 34)
     b.BackgroundColor3 = color
@@ -226,7 +211,7 @@ local function refreshCanvas()
 end
 plistLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(refreshCanvas)
 
--- Bottom: chat box
+-- Bottom chat
 local chatBox = Instance.new("TextBox")
 chatBox.Size = UDim2.new(1, -12, 0, 34)
 chatBox.Text = ""
@@ -245,47 +230,13 @@ chatPad.PaddingLeft = UDim.new(0, 6)
 chatPad.PaddingRight = UDim.new(0, 6)
 chatPad.Parent = chatBox
 
--- Responsif
-local function applyResponsive()
-    if IS_MOBILE then
-        panel.Size = UDim2.new(0, 320, 0, 360)
-        openBtn.Visible = hasAdmin
-        openBtn.Position = UDim2.new(1, -10, 0.5, 0)
-        panel.Position = UDim2.new(0.5, 0, 0.5, 0)
-        grid.CellSize = UDim2.new(0.5, -6, 0, 34)
-        mid.Size = UDim2.new(1, -12, 0, 200)
-    else
-        panel.Size = UDim2.new(0, 600, 0, 420)
-        openBtn.Visible = false
-        grid.CellSize = UDim2.new(0.5, -6, 0, 34)
-        mid.Size = UDim2.new(1, -12, 0, 240)
-    end
-end
-
--- Toggle panel
-local panelOpen = false
-local function setPanel(open: boolean)
-    panel.Visible = open
-    panelOpen = open
-end
-setPanel(false)
-
--- PC: F5 toggle
-UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.KeyCode == Enum.KeyCode.F5 and not IS_MOBILE and hasAdmin then
-        if not debounce("toggle", 0.25) then return end
-        setPanel(not panelOpen)
-    end
-end)
-
--- Mobile: ikon toggle
+-- Toggle panel via icon
 openBtn.MouseButton1Click:Connect(function()
     if not debounce("toggle", 0.25) then return end
-    setPanel(not panelOpen)
+    panel.Visible = not panel.Visible
 end)
 
--- Tombol fitur
+-- Buttons
 local btnSpectate = makeBtn("👁️ Spectate", Color3.fromRGB(255, 230, 120))
 btnSpectate.Parent = features
 local btnFly = makeBtn("🪽 Fly", Color3.fromRGB(170, 235, 255))
@@ -309,7 +260,7 @@ btnRevoke.Parent = features
 btnGive.Visible = false
 btnRevoke.Visible = false
 
--- Player list builder
+-- Player list helpers
 local function buildPlayerRow(item)
     local row = Instance.new("TextButton")
     row.Size = UDim2.new(1, -8, 0, 28)
@@ -342,7 +293,6 @@ local function buildPlayerRow(item)
 end
 
 local function refreshPlayerList(list)
-    -- Hanya hapus baris pemain, pertahankan layout/helper
     for _, child in ipairs(plist:GetChildren()) do
         if child:IsA("TextButton") then
             child:Destroy()
@@ -355,7 +305,7 @@ local function refreshPlayerList(list)
     refreshCanvas()
 end
 
--- Chat send
+-- Chat
 chatBox.FocusLost:Connect(function(enter)
     if not enter then return end
     if not debounce("chat", 0.25) then return end
@@ -366,11 +316,10 @@ chatBox.FocusLost:Connect(function(enter)
     end
 end)
 
--- Fly (smooth, bersih saat OFF)
+-- Fly (Mobile)
 local isFlying = false
-local bv: BodyVelocity? = nil
-local bg: BodyGyro? = nil
-local saved = { ws = nil :: number?, jp = nil :: number?, autoRotate = true }
+local bv, bg = nil, nil
+local saved = { ws = nil, jp = nil, autoRotate = true }
 
 local function cleanupFly()
     local char = LOCAL_PLAYER.Character
@@ -392,17 +341,15 @@ local function cleanupFly()
         hum.PlatformStand = false
         hum:ChangeState(Enum.HumanoidStateType.Running)
     end
-    bv = nil
-    bg = nil
+    bv = nil; bg = nil
 end
 
-local function setFly(on: boolean)
+local function setFly(on)
     if on == isFlying then return end
     local char = LOCAL_PLAYER.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not (char and hrp and hum) then return end
-
     if on then
         isFlying = true
         saved.ws = hum.WalkSpeed
@@ -412,25 +359,20 @@ local function setFly(on: boolean)
         hum.WalkSpeed = 0
         hum.JumpPower = 0
         hum.PlatformStand = false
-
-        -- Bersihkan sisa body movers sebelum mulai
         for _, child in ipairs(hrp:GetChildren()) do
             if child:IsA("BodyMover") or child:IsA("BodyGyro") or child:IsA("BodyVelocity") then
                 child:Destroy()
             end
         end
-
         bv = Instance.new("BodyVelocity")
         bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
         bv.Velocity = Vector3.zero
         bv.Parent = hrp
-
         bg = Instance.new("BodyGyro")
         bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
         bg.P = 1e5
         bg.CFrame = hrp.CFrame
         bg.Parent = hrp
-
         notify("Fly ON")
     else
         isFlying = false
@@ -439,45 +381,42 @@ local function setFly(on: boolean)
     end
 end
 
-local flySpeed = 60
+local flySpeed = 48
 RunService.RenderStepped:Connect(function(dt)
     if not isFlying then return end
     local char = LOCAL_PLAYER.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not (char and hrp and bv and bg) then return end
-
     local cam = workspace.CurrentCamera
     local cf = cam.CFrame
     local dir = Vector3.zero
-    if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += Vector3.new(0, 0, -1) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir += Vector3.new(0, 0, 1) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir += Vector3.new(-1, 0, 0) end
-    if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir += Vector3.new(1, 0, 0) end
+    -- Mobile tidak punya WASD, tapi kita masih cek Space/Shift jika ada
     if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir += Vector3.new(0, 1, 0) end
     if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir += Vector3.new(0, -1, 0) end
-
+    -- Gunakan moveDirection dari Humanoid untuk input virtual stick
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local moveDir = hum and hum.MoveDirection or Vector3.zero
+    dir += Vector3.new(moveDir.X, 0, moveDir.Z)
     local look = cf.LookVector
     local right = cf.RightVector
     local up = Vector3.new(0, 1, 0)
     local move = (right * dir.X) + (look * -dir.Z) + (up * dir.Y)
     if move.Magnitude > 0 then move = move.Unit end
-
     local targetVel = move * flySpeed
     local currVel = hrp.AssemblyLinearVelocity
     local blend = math.clamp(12 * dt, 0, 1)
     local newVel = currVel:Lerp(targetVel, blend)
     if targetVel.Magnitude < 0.1 then newVel = newVel * 0.85 end
     hrp.AssemblyLinearVelocity = newVel
-
     if move.Magnitude > 0.01 then
         bg.CFrame = CFrame.new(hrp.Position, hrp.Position + Vector3.new(look.X, 0, look.Z))
     end
 end)
 
--- Spectate (kamera saja, toggle via command)
+-- Spectate (kamera)
 local isSpectating = false
-local originalSubject: Instance? = nil
-local function setSpectate(targetName: string?)
+local originalSubject = nil
+local function setSpectate(targetName)
     local camera = workspace.CurrentCamera
     if not targetName or targetName == "" then
         if isSpectating and originalSubject then
@@ -499,8 +438,7 @@ local function setSpectate(targetName: string?)
     camera.CameraSubject = hum
 end
 
--- Quick local invis visual (server tetap atur global)
-local function quickLocalInvis(on: boolean)
+local function quickLocalInvis(on)
     local char = LOCAL_PLAYER.Character
     if not char then return end
     for _, inst in ipairs(char:GetDescendants()) do
@@ -510,7 +448,7 @@ local function quickLocalInvis(on: boolean)
     end
 end
 
--- Actions wiring
+-- Wire buttons
 btnSpectate.MouseButton1Click:Connect(function()
     if not debounce("spectate", 0.3) then return end
     if not selectedName then notify("Pilih target dulu"); return end
@@ -532,7 +470,7 @@ btnInvis.MouseButton1Click:Connect(function()
     if not debounce("invis", 0.3) then return end
     local char = LOCAL_PLAYER.Character
     local head = char and char:FindFirstChild("Head")
-    local hintInvisible = head and (head :: any).LocalTransparencyModifier == 1
+    local hintInvisible = head and head.LocalTransparencyModifier == 1
     quickLocalInvis(not hintInvisible)
     if REMOTE then
         if hintInvisible then
@@ -585,19 +523,18 @@ btnRevoke.MouseButton1Click:Connect(function()
     if REMOTE then REMOTE:FireServer({ t = "cmd", cmd = "revoke", target = selectedName }) end
 end)
 
--- Remote events (server -> client)
+-- Remote events
 if REMOTE then
     REMOTE.OnClientEvent:Connect(function(payload)
         if typeof(payload) ~= "table" then return end
         if payload.t == "admin" then
             hasAdmin = payload.on == true
             isOwner = payload.owner == true
-            openBtn.Visible = IS_MOBILE and hasAdmin
+            openBtn.Visible = isMobile and hasAdmin
             btnGive.Visible = isOwner
             btnRevoke.Visible = isOwner
-            if not hasAdmin then setPanel(false) end
+            if not hasAdmin then panel.Visible = false end
             notify(hasAdmin and "Admin enabled" or "Admin disabled")
-            applyResponsive()
         elseif payload.t == "plist" then
             refreshPlayerList(payload.list or {})
         elseif payload.t == "chat" then
@@ -605,7 +542,6 @@ if REMOTE then
         elseif payload.t == "notify" then
             notify(payload.msg or "")
         elseif payload.t == "spectate" then
-            -- Toggle jika target sama dan sedang ON
             if isSpectating and payload.target and selectedName and string.lower(payload.target) == string.lower(selectedName) then
                 setSpectate(nil)
             else
@@ -617,7 +553,5 @@ if REMOTE then
     end)
 end
 
--- Init
-applyResponsive()
-print("[AdminClient] Ready")
+print("[AdminClientMobile] Ready")
 
