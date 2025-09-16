@@ -203,7 +203,8 @@ local function makeBtn(txt: string, color: Color3): TextButton
     b.BackgroundColor3 = color
     b.BorderSizePixel = 0
     b.Text = txt
-    b.TextColor3 = Color3.fromRGB(255, 255, 255)
+    -- Fitur: teks tombol tetap hitam/gelap sesuai permintaan
+    b.TextColor3 = Color3.fromRGB(20, 28, 45)
     b.TextSize = 14
     b.Font = Enum.Font.GothamBold
     local c = Instance.new("UICorner")
