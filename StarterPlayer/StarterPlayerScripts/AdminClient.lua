@@ -478,7 +478,12 @@ RunService.RenderStepped:Connect(function(dt)
     if not isFlying then return end
     local char = LOCAL_PLAYER.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not (char and hrp and bv and bg) then return end
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not (char and hrp and hum and bv and bg) then return end
+    -- Paksa state supaya tidak lari di tempat
+    if hum:GetState() ~= Enum.HumanoidStateType.Freefall then
+        hum:ChangeState(Enum.HumanoidStateType.Freefall)
+    end
     local cam = workspace.CurrentCamera
     local cf = cam.CFrame
     local dir = Vector3.zero
@@ -506,7 +511,10 @@ RunService.RenderStepped:Connect(function(dt)
     if targetVel.Magnitude < 0.1 then newVel = newVel * 0.85 end
     hrp.AssemblyLinearVelocity = newVel
     if move.Magnitude > 0.01 then
-        bg.CFrame = CFrame.new(hrp.Position, hrp.Position + Vector3.new(look.X, 0, look.Z))
+        -- Badan menghadap arah gerak (ikut kamera)
+        local faceDir = Vector3.new(look.X, 0, look.Z)
+        if faceDir.Magnitude < 0.001 then faceDir = Vector3.new(0, 0, -1) end
+        bg.CFrame = CFrame.new(hrp.Position, hrp.Position + faceDir)
     end
 end)
 
@@ -632,6 +640,19 @@ if REMOTE then
             addChatLine(payload.from or "?", payload.msg or "")
         elseif payload.t == "notify" then
             notify(payload.msg or "")
+        elseif payload.t == "ovh" then
+            -- Hide/Show overhead kustom untuk user tertentu (nametag, rank role, side role, summit)
+            local target = nil
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p.UserId == payload.userId then target = p break end
+            end
+            if target and target.Character then
+                for _, inst in ipairs(target.Character:GetDescendants()) do
+                    if inst:IsA("BillboardGui") or inst:IsA("SurfaceGui") then
+                        inst.Enabled = not payload.hide
+                    end
+                end
+            end
         elseif payload.t == "spectate" then
             if isSpectating and payload.target and selectedName and string.lower(payload.target) == string.lower(selectedName) then
                 setSpectate(nil)

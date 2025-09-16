@@ -130,6 +130,10 @@ local function setInvisible(p: Player, on: boolean)
                 h.CanTouch = false
             end
         end
+        -- Beri tahu semua klien untuk menyembunyikan overhead/nametag kustom milik pemain ini
+        for _, plr in ipairs(Players:GetPlayers()) do
+            remote:FireClient(plr, { t = "ovh", userId = p.UserId, hide = true })
+        end
     else
         local state = INVIS_STATE[p.UserId]
         if not state then return end
@@ -152,6 +156,10 @@ local function setInvisible(p: Player, on: boolean)
                     inst.Transparency = orig
                 end
             end
+        end
+        -- Tampilkan kembali overhead kustom
+        for _, plr in ipairs(Players:GetPlayers()) do
+            remote:FireClient(plr, { t = "ovh", userId = p.UserId, hide = false })
         end
     end
 end
