@@ -69,6 +69,7 @@ end
 local hasAdmin = false
 local isOwner = false
 local selectedName: string? = nil
+local selectedRow: TextButton? = nil
 
 -- Root GUI
 local gui = Instance.new("ScreenGui")
@@ -98,7 +99,7 @@ local panel = Instance.new("Frame")
 panel.Name = "AdminPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0.5)
 panel.Position = UDim2.new(0.5, 0, 0.5, 0)
-panel.BackgroundColor3 = Color3.fromRGB(245, 248, 255)
+panel.BackgroundColor3 = Color3.fromRGB(16, 18, 22)
 panel.BorderSizePixel = 0
 panel.Visible = false
 panel.Parent = gui
@@ -107,7 +108,7 @@ panelCorner.CornerRadius = UDim.new(0, 10)
 panelCorner.Parent = panel
 local stroke = Instance.new("UIStroke")
 stroke.Thickness = 1
-stroke.Color = Color3.fromRGB(200, 210, 230)
+stroke.Color = Color3.fromRGB(60, 70, 90)
 stroke.Parent = panel
 
 -- Columns container
@@ -134,13 +135,13 @@ leftTitle.BackgroundTransparency = 1
 leftTitle.Size = UDim2.new(1, 0, 0, 22)
 leftTitle.Text = "👥 Players"
 leftTitle.TextXAlignment = Enum.TextXAlignment.Left
-leftTitle.TextColor3 = Color3.fromRGB(40, 50, 70)
+leftTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 leftTitle.TextSize = 14
 leftTitle.Font = Enum.Font.GothamMedium
 leftTitle.Parent = leftCol
 local playerList = Instance.new("ScrollingFrame")
 playerList.Name = "PlayerList"
-playerList.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+playerList.BackgroundColor3 = Color3.fromRGB(28, 32, 40)
 playerList.BorderSizePixel = 0
 playerList.ScrollBarThickness = 4
 playerList.Parent = leftCol
@@ -167,7 +168,7 @@ targetLabel.BackgroundTransparency = 1
 targetLabel.Size = UDim2.new(1, 0, 0, 22)
 targetLabel.TextXAlignment = Enum.TextXAlignment.Left
 targetLabel.Text = "🎯 Target: -"
-targetLabel.TextColor3 = Color3.fromRGB(40, 50, 70)
+targetLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 targetLabel.TextSize = 14
 targetLabel.Font = Enum.Font.GothamMedium
 targetLabel.Parent = centerTop
@@ -178,8 +179,8 @@ reasonBox.Text = ""
 reasonBox.ClearTextOnFocus = false
 reasonBox.TextSize = 14
 reasonBox.Font = Enum.Font.Gotham
-reasonBox.TextColor3 = Color3.fromRGB(40, 50, 70)
-reasonBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+reasonBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+reasonBox.BackgroundColor3 = Color3.fromRGB(30, 34, 42)
 reasonBox.BorderSizePixel = 0
 reasonBox.Parent = centerTop
 local rbCorner = Instance.new("UICorner")
@@ -202,7 +203,7 @@ local function makeBtn(txt: string, color: Color3): TextButton
     b.BackgroundColor3 = color
     b.BorderSizePixel = 0
     b.Text = txt
-    b.TextColor3 = Color3.fromRGB(20, 28, 45)
+    b.TextColor3 = Color3.fromRGB(255, 255, 255)
     b.TextSize = 14
     b.Font = Enum.Font.GothamBold
     local c = Instance.new("UICorner")
@@ -224,13 +225,13 @@ rightTitle.BackgroundTransparency = 1
 rightTitle.Size = UDim2.new(1, 0, 0, 22)
 rightTitle.Text = "💬 Admin Chat"
 rightTitle.TextXAlignment = Enum.TextXAlignment.Left
-rightTitle.TextColor3 = Color3.fromRGB(40, 50, 70)
+rightTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
 rightTitle.TextSize = 14
 rightTitle.Font = Enum.Font.GothamMedium
 rightTitle.Parent = rightCol
 local chatList = Instance.new("ScrollingFrame")
 chatList.Name = "ChatList"
-chatList.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+chatList.BackgroundColor3 = Color3.fromRGB(28, 32, 40)
 chatList.BorderSizePixel = 0
 chatList.ScrollBarThickness = 4
 chatList.Parent = rightCol
@@ -250,8 +251,8 @@ chatInput.Text = ""
 chatInput.PlaceholderText = "Ketik dan Enter untuk kirim"
 chatInput.TextSize = 14
 chatInput.Font = Enum.Font.Gotham
-chatInput.TextColor3 = Color3.fromRGB(40, 50, 70)
-chatInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+chatInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+chatInput.BackgroundColor3 = Color3.fromRGB(30, 34, 42)
 chatInput.BorderSizePixel = 0
 chatInput.Parent = rightCol
 local ciCorner = Instance.new("UICorner")
@@ -352,14 +353,14 @@ btnRevoke.Visible = false
 local function buildPlayerRow(item)
     local row = Instance.new("TextButton")
     row.Size = UDim2.new(1, -6, 0, 26)
-    row.BackgroundColor3 = Color3.fromRGB(245, 248, 255)
+    row.BackgroundColor3 = Color3.fromRGB(34, 38, 46)
     row.BorderSizePixel = 0
     row.TextXAlignment = Enum.TextXAlignment.Left
     local label = item.display
     if item.label == "ADMIN" then label = label .. "  (ADMIN)" end
     if item.label == "HELPER" then label = label .. "  (HELPER)" end
     row.Text = "  " .. label
-    row.TextColor3 = Color3.fromRGB(20, 28, 45)
+    row.TextColor3 = Color3.fromRGB(255, 255, 255)
     row.TextSize = 14
     row.Font = Enum.Font.Gotham
     local c = Instance.new("UICorner")
@@ -371,8 +372,14 @@ local function buildPlayerRow(item)
     s.Parent = row
     row.MouseButton1Click:Connect(function()
         if not debounce("pick", 0.2) then return end
+        if selectedRow and selectedRow.Parent then
+            selectedRow.TextColor3 = Color3.fromRGB(255, 255, 255)
+        end
+        selectedRow = row
         selectedName = item.name
         targetLabel.Text = "🎯 Target: " .. item.display
+        row.TextColor3 = Color3.fromRGB(100, 255, 170)
+        notify("Selected: " .. item.display)
     end)
     return row
 end
@@ -395,7 +402,7 @@ local function addChatLine(from: string, msg: string)
     line.TextXAlignment = Enum.TextXAlignment.Left
     line.Size = UDim2.new(1, -6, 0, 18)
     line.Text = string.format("%s: %s", from, msg)
-    line.TextColor3 = Color3.fromRGB(40, 50, 70)
+    line.TextColor3 = Color3.fromRGB(255, 255, 255)
     line.TextSize = 13
     line.Font = Enum.Font.Gotham
     line.Parent = chatList
